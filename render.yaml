@@ -1,0 +1,37 @@
+# Render Blueprint for PileQuote (the app in ./pilequote).
+# In Render: New + -> Blueprint -> pick this repo. See pilequote/README.md.
+services:
+  - type: web
+    name: pilequote
+    runtime: node
+    rootDir: pilequote
+    plan: starter # a paid plan is needed for the disk that stores companies, leads and photos
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /healthz
+    disk:
+      name: pilequote-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 22.23.4
+      - key: DATA_DIR
+        value: /var/data
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "465"
+      # Render asks you for these when you create the Blueprint:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      # Add these later in the Environment tab when you turn on billing:
+      # STRIPE_SECRET_KEY, STRIPE_PRICE_ID, STRIPE_WEBHOOK_SECRET
