@@ -10,6 +10,7 @@ Commands
   buy SYMBOL QTY --reason .. open a paper position (checks the risk rules)
   sell SYMBOL --reason ..    close a paper position at the bid
   decide --source .. --action .. --reason ..   log a decision, including "no trade"
+  score                      grade direction calls after 1 and 5 trading days
   mark                       value open positions, flag exits; --auto-exit closes them
   status                     cash, positions, P&L
   dashboard                  write paper/dashboard.html
@@ -283,11 +284,52 @@ def cmd_sell(a):
     save_state(s)
 
 
+def spot_price(sym: str) -> float:
+    return float(chain(sym).fast_info["last_price"])
+
+
 def cmd_decide(a):
     row = {"time": now_et().isoformat(timespec="seconds"), "source": a.source,
            "action": a.action, "ticker": a.ticker, "reason": a.reason}
+    if a.predict:
+        sym = a.predict_symbol or a.ticker
+        row.update({"predict": a.predict, "predict_symbol": sym, "spot": spot_price(sym)})
     append(DECISIONS, row)
     print("Logged:", row)
+
+
+def cmd_score(a):
+    """Score direction calls 1 and 5 trading days after they were made, using daily closes."""
+    import yfinance as yf
+    rows = read_jsonl(DECISIONS)
+    changed = False
+    for r in rows:
+        if not r.get("predict") or ("ret_5d" in r):
+            continue
+        made = datetime.fromisoformat(r["time"])
+        df = yf.download(r["predict_symbol"], start=made.date().isoformat(), progress=False,
+                         auto_adjust=False, multi_level_index=False)
+        if df is None or df.empty:
+            continue
+        closes = df["Close"].dropna()
+        # first close strictly after the call (a call made after 4pm counts from the next day)
+        after = closes[[d.date() > made.date() or (d.date() == made.date() and made.hour < 16)
+                        for d in closes.index]]
+        sign = 1 if r["predict"] == "up" else -1
+        for n, key in [(1, "ret_1d"), (5, "ret_5d")]:
+            if key not in r and len(after) >= n + (1 if made.hour < 16 and made.weekday() < 5 else 0):
+                px = float(after.iloc[n - 1 + (1 if made.hour < 16 and made.weekday() < 5 else 0)])
+                ret = px / r["spot"] - 1
+                r[key], r[key.replace("ret", "hit")] = ret, bool(ret * sign > 0)
+                changed = True
+    if changed:
+        DECISIONS.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    calls = [r for r in rows if r.get("predict")]
+    for key in ["hit_1d", "hit_5d"]:
+        done = [r[key] for r in calls if key in r]
+        if done:
+            print(f"{key}: {sum(done)}/{len(done)} correct ({sum(done) / len(done):.0%})")
+    print(f"{len(calls)} direction calls logged, {sum('ret_5d' not in r for r in calls)} still open")
 
 
 def cmd_mark(a):
@@ -343,6 +385,8 @@ def cmd_dashboard(a):
     data = {"state": {k: v for k, v in s.items() if k != "seen"},
             "trades": read_jsonl(TRADES), "decisions": read_jsonl(DECISIONS)[-200:],
             "updated": now_et().strftime("%a %b %d, %Y %I:%M %p ET"),
+            "heartbeat": (PAPER / "watcher.heartbeat").read_text().strip() if (PAPER / "watcher.heartbeat").exists() else None,
+            "alerts_today": sum(1 for r in read_jsonl(PAPER / "alerts.jsonl") if r["time"][:10] == now_et().date().isoformat()),
             "rules": {"start": START_CASH, "max_trade": MAX_PER_TRADE, "max_open": MAX_OPEN,
                       "tp": TAKE_PROFIT, "sl": STOP_LOSS, "hold": MAX_HOLD_DAYS}}
     tpl = (HERE / "dashboard_template.html").read_text()
@@ -366,7 +410,11 @@ def main():
     p.set_defaults(f=cmd_sell)
     p = sub.add_parser("decide"); p.add_argument("--source", required=True)
     p.add_argument("--action", required=True); p.add_argument("--ticker", default="")
-    p.add_argument("--reason", required=True); p.set_defaults(f=cmd_decide)
+    p.add_argument("--reason", required=True)
+    p.add_argument("--predict", choices=["up", "down"], help="log a direction call to be scored later")
+    p.add_argument("--predict-symbol", default="", help="symbol to score, if not --ticker (e.g. CL=F)")
+    p.set_defaults(f=cmd_decide)
+    sub.add_parser("score").set_defaults(f=cmd_score)
     p = sub.add_parser("mark"); p.add_argument("--auto-exit", action="store_true"); p.set_defaults(f=cmd_mark)
     sub.add_parser("status").set_defaults(f=cmd_status)
     sub.add_parser("dashboard").set_defaults(f=cmd_dashboard)

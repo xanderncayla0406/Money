@@ -49,4 +49,26 @@ The study in `README.md` found no edge in chasing a post once it's public. Most 
 
 ## Changes
 
-None yet.
+### Mon Nov 23, 2026, 12:20 ET: wider coverage, alerts, direction calls
+
+**Coverage.** Monitoring now covers oil, the Iran war, the Fed, sanctions and any breaking market news, not just presidential posts. `watcher.py` checks every minute, with no AI cost, and writes alerts. A low-cost subagent triages each alert, and the final decision follows these rules.
+
+**H3. Oil and war shocks: direction calls only, no money.** `oil_study.py` tested 14 oil shocks from 2019 to 2026. The first day moved with the news 86% of the time in USO (71% in crude futures), but mostly before the first tradable price. Over the next 5 days, moves reversed exactly 50% of the time.
+- **Before 2026,** spikes faded.
+- **In this war,** with Hormuz actually closed, they kept going.
+
+That isn't an edge, so oil and war alerts get a logged direction call (`decide --predict up|down`), not a trade. `monitor.py score` grades each call after 1 and 5 trading days. If live calls reach 15 or more and beat 65%, a dated entry here may turn H3 into a trading rule.
+
+**When an alert wakes Claude** (`wait_alerts.sh` exits):
+1. If the output says WATCHER DOWN, restart the watcher: `cd president_signals && nohup python3 watcher.py > paper/watcher.log 2>&1 &`.
+2. Otherwise, hand the new alerts to a low-cost subagent (Agent tool, model `haiku`) with the instructions in `TRIAGE.md`.
+3. For every alert the subagent rates 2 or 3:
+   - Log a decision with a direction call.
+   - Trade only if H1 or H2 triggers and the market is open.
+   - Outside market hours, log the decision as "Plan for open".
+4. Alerts rated 0 or 1 get no decision row. The alert file keeps them.
+5. Mark the alerts handled: `wc -l < paper/alerts.jsonl > paper/alerts.triaged`. Alerts past that line number are untriaged.
+6. Re-arm `wait_alerts.sh` with Bash `run_in_background` (timeout 7200000).
+7. If anything changed, rebuild and republish the dashboard, then commit and push `paper/`.
+
+**Direction calls on everything.** Any alert judged likely to move a price also gets a direction call, even when no trade is placed. That measures accuracy across far more events than $1,000 can trade.

@@ -109,6 +109,12 @@ a { color: var(--accent); }
     <div class="table-wrap"><table><thead><tr><th>Closed</th><th>Contract</th><th class="num">Qty</th><th class="num">Sold at</th><th class="num">P&amp;L</th><th>Why</th></tr></thead><tbody id="closed"></tbody></table></div>
   </section>
   <section>
+    <h2>Direction calls</h2>
+    <p class="muted">Every alert that looks likely to move a price gets an up-or-down call with the price at that moment, traded or not. Each call is graded 1 and 5 trading days later.</p>
+    <div class="kpis" id="callk"></div>
+    <div class="table-wrap"><table><thead><tr><th>Called (ET)</th><th>Symbol</th><th>Call</th><th class="num">Price then</th><th class="num">1 day</th><th class="num">5 days</th></tr></thead><tbody id="calls"></tbody></table></div>
+  </section>
+  <section>
     <h2>Decision log</h2>
     <p class="muted">Newest first. Every post or headline that could move a stock gets a decision.</p>
     <div class="table-wrap"><table><thead><tr><th>Time (ET)</th><th>Decision</th><th>Stock</th><th>Reason</th><th>Source</th></tr></thead><tbody id="dec"></tbody></table></div>
@@ -120,13 +126,13 @@ a { color: var(--accent); }
   </section>
 </div>
 <script>
-const D = {"state": {"cash": 1000.0, "positions": {}, "realized": 0.0, "started": "2026-11-23T11:55:55-05:00", "equity": 1000.0}, "trades": [], "decisions": [{"time": "2026-11-23T11:56:09-05:00", "source": "Truth Social posts Nov 22 evening + Nov 23 09:07/09:50 ET; Nvidia 8-K", "action": "No trade", "ticker": "NVDA", "reason": "Fade setup (H1) checked: NVDA +27% vs S&P since Friday. Skipped: the move rests on a hard fact (board reinstated Huang), and it is past the 15% post-move cap. Also, the only puts under the $250 limit are 19-25% out of the money, which needs NVDA to give back most of the gain."}], "updated": "Mon Nov 23, 2026 11:56 AM ET", "rules": {"start": 1000.0, "max_trade": 250.0, "max_open": 3, "tp": 0.6, "sl": -0.5, "hold": 7}};
+const D = {"state": {"cash": 1000.0, "positions": {}, "realized": 0.0, "started": "2026-11-23T11:55:55-05:00", "equity": 1000.0}, "trades": [], "decisions": [{"time": "2026-11-23T11:56:09-05:00", "source": "Truth Social posts Nov 22 evening + Nov 23 09:07/09:50 ET; Nvidia 8-K", "action": "No trade", "ticker": "NVDA", "reason": "Fade setup (H1) checked: NVDA +27% vs S&P since Friday. Skipped: the move rests on a hard fact (board reinstated Huang), and it is past the 15% post-move cap. Also, the only puts under the $250 limit are 19-25% out of the money, which needs NVDA to give back most of the gain."}], "updated": "Mon Nov 23, 2026 12:07 PM ET", "heartbeat": "2026-11-23T12:06:53-05:00", "alerts_today": 0, "rules": {"start": 1000.0, "max_trade": 250.0, "max_open": 3, "tp": 0.6, "sl": -0.5, "hold": 7}};
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const money = x => (x < 0 ? "−$" : "$") + Math.abs(x).toFixed(2);
 const sp = x => (x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(x * 100).toFixed(1) + "%";
 const t = s => s ? s.replace("T", " ").slice(0, 16) : "";
-$("upd").textContent = "Updated " + D.updated;
+$("upd").textContent = "Updated " + D.updated + (D.heartbeat ? " · watcher last checked " + D.heartbeat.replace("T", " ").slice(5, 16) + " ET · " + D.alerts_today + " alerts today" : "");
 const st = D.state, start = D.rules.start;
 const eq = st.equity ?? st.cash;
 const closed = D.trades.filter(x => x.side === "SELL");
@@ -144,6 +150,13 @@ $("pos").innerHTML = pos.length ? pos.map(([sym, p]) => {
 }).join("") : `<tr><td colspan="7" class="empty">No open positions. The account is in cash.</td></tr>`;
 $("closed").innerHTML = closed.length ? closed.slice().reverse().map(x => `<tr><td>${t(x.time)}</td><td class="tick">${esc(x.symbol)}</td><td class="num">${x.qty}</td><td class="num">${x.price.toFixed(2)}</td><td class="num ${x.pnl >= 0 ? "hit" : "miss"}">${money(x.pnl)} (${sp(x.pnl_pct)})</td><td class="desc">${esc(x.reason)}</td></tr>`).join("") : `<tr><td colspan="6" class="empty">No closed trades yet.</td></tr>`;
 $("dec").innerHTML = D.decisions.length ? D.decisions.slice().reverse().map(x => `<tr><td style="white-space:nowrap">${t(x.time)}</td><td><span class="pill ${/^no/i.test(x.action) ? "none" : "trade"}">${esc(x.action)}</span></td><td class="tick">${esc(x.ticker)}</td><td class="desc" style="color:var(--fg);font-size:.85rem">${esc(x.reason)}</td><td class="desc">${esc(x.source)}</td></tr>`).join("") : `<tr><td colspan="5" class="empty">No decisions logged yet.</td></tr>`;
+const calls = D.decisions.filter(x => x.predict);
+const graded = k => calls.filter(x => k in x);
+const rate = k => { const g = graded(k); return g.length ? `${g.filter(x => x[k]).length}/${g.length}` : "–"; };
+$("callk").innerHTML = [[String(calls.length), "Calls logged"], [rate("hit_1d"), "Right after 1 day"], [rate("hit_5d"), "Right after 5 days"], [String(calls.filter(x => !("ret_5d" in x)).length), "Still being graded"]]
+  .map(([v, k]) => `<div class="kpi"><span class="v">${v}</span><span class="k">${k}</span></div>`).join("");
+const res = (x, k) => !(("ret_" + k) in x) ? `<td class="num muted">pending</td>` : `<td class="num ${x["hit_" + k] ? "hit" : "miss"}">${sp(x["ret_" + k])}</td>`;
+$("calls").innerHTML = calls.length ? calls.slice().reverse().map(x => `<tr><td style="white-space:nowrap">${t(x.time)}</td><td class="tick">${esc(x.predict_symbol)}</td><td class="${x.predict === "up" ? "hit" : "miss"}">${x.predict === "up" ? "▲ Up" : "▼ Down"}</td><td class="num">${(+x.spot).toFixed(2)}</td>${res(x, "1d")}${res(x, "5d")}</tr>`).join("") : `<tr><td colspan="6" class="empty">No direction calls yet.</td></tr>`;
 const R = D.rules;
 $("rules").innerHTML = [`Start ${money(R.start)}`, `Max ${money(R.max_trade)} per trade`, `Max ${R.max_open} open`, `Take profit +${R.tp * 100}%`, `Stop loss ${R.sl * 100}%`, `Exit after ${R.hold} days`, "Buy calls and puts only", "No trades when IV is above 100%"].map(x => `<span>${x}</span>`).join("");
 </script>
