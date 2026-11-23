@@ -1,0 +1,149 @@
+<title>$1,000 Paper Desk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column; a hit-rate chart against the 75% goal leads, then the Nvidia case, then the event ledger. */
+:root {
+  --bg: #f5f7f9; --surface: #ffffff; --fg: #18212b; --muted: #5b6875; --line: #dbe2e8;
+  --accent: #1f5f8b; --goal: #b7791f; --up: #1d7a4f; --down: #b33a3a; --bar-bg: #e7edf2;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11171d; --surface: #182029; --fg: #e4eaf0; --muted: #96a3b0; --line: #2a3541;
+  --accent: #6cb2e0; --goal: #e0a84a; --up: #5cc493; --down: #ef7f7f; --bar-bg: #222d38; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11171d; --surface: #182029; --fg: #e4eaf0; --muted: #96a3b0; --line: #2a3541;
+  --accent: #6cb2e0; --goal: #e0a84a; --up: #5cc493; --down: #ef7f7f; --bar-bg: #222d38; color-scheme: dark }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 64px; }
+.wrap { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
+h1, h2 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(1.9rem, 5vw, 2.6rem); font-weight: 800; line-height: 1.1; }
+h2 { font-size: 1.3rem; font-weight: 700; }
+p { margin: 0; max-width: 65ch; }
+.eyebrow { font-family: var(--mono); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.lede { font-size: 1.08rem; color: var(--fg); }
+.muted { color: var(--muted); }
+section { display: flex; flex-direction: column; gap: 14px; }
+header { display: flex; flex-direction: column; gap: 12px; }
+.verdict { border-left: 4px solid var(--goal); background: var(--surface); padding: 14px 18px; border-radius: 0 6px 6px 0; }
+.verdict strong { font-family: var(--display); }
+
+/* hit-rate chart */
+.chart { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 20px 18px 14px; display: flex; flex-direction: column; gap: 18px; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.row-label { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.row-label span:first-child { font-weight: 500; }
+.row-val { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 1.05rem; font-weight: 500; }
+.track { position: relative; height: 22px; background: var(--bar-bg); border-radius: 3px; }
+.fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--accent); }
+.ci { position: absolute; top: 50%; height: 2px; background: var(--fg); opacity: 0.55; transform: translateY(-50%); }
+.ci::before, .ci::after { content: ""; position: absolute; top: -5px; width: 2px; height: 12px; background: var(--fg); }
+.ci::before { left: 0; } .ci::after { right: 0; }
+.goal { position: absolute; top: -6px; bottom: -6px; width: 2px; background: var(--goal); }
+.axis { position: relative; height: 18px; font-family: var(--mono); font-size: 0.72rem; color: var(--muted); }
+.axis span { position: absolute; transform: translateX(-50%); }
+.axis span:first-child { transform: none; } .axis span:last-child { transform: translateX(-100%); }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 0.82rem; color: var(--muted); }
+.legend i { display: inline-block; vertical-align: middle; margin-right: 6px; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tabs button { font: inherit; font-size: 0.85rem; padding: 6px 12px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 999px; cursor: pointer; }
+.tabs button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.tabs button:focus-visible, a:focus-visible { outline: 2px solid var(--goal); outline-offset: 2px; }
+
+/* nvidia */
+.nv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.step { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.step .when { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.step .big { font-family: var(--mono); font-size: 1.4rem; font-variant-numeric: tabular-nums; font-weight: 500; }
+.step p { font-size: 0.9rem; }
+@media (max-width: 620px) { .nv { grid-template-columns: minmax(0, 1fr); } }
+#spark { width: 100%; height: auto; display: block; }
+
+/* table */
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 0.86rem; }
+th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--mono); font-weight: 500; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); white-space: nowrap; }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+th.num { text-align: right; }
+tr:last-child td { border-bottom: 0; }
+.hit { color: var(--up); } .miss { color: var(--down); }
+.tick { font-family: var(--mono); font-weight: 600; }
+.desc { color: var(--muted); font-size: 0.8rem; }
+code { font-family: var(--mono); font-size: 0.85em; background: var(--bar-bg); padding: 1px 5px; border-radius: 3px; }
+ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; max-width: 65ch; }
+a { color: var(--accent); }
+</style>
+<style>
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.kpi .v { font-family: var(--mono); font-size: 1.35rem; font-variant-numeric: tabular-nums; font-weight: 500; }
+.kpi .k { font-size: 0.8rem; color: var(--muted); }
+@media (max-width: 620px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.pill { display: inline-block; font-family: var(--mono); font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; }
+.pill.trade { border-color: var(--accent); color: var(--accent); }
+.pill.none { color: var(--muted); }
+.empty { padding: 16px; color: var(--muted); }
+.rules { display: flex; flex-wrap: wrap; gap: 8px; }
+.rules span { font-size: 0.82rem; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; }
+</style>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Paper money only · live option quotes · <span id="upd"></span></div>
+    <h1>$1,000 Paper Desk</h1>
+    <p class="lede">An account that trades calls and puts on presidential posts, White House actions and news. Every decision is logged with its reason, including the decision not to trade. The rules were fixed before the first trade.</p>
+  </header>
+  <div class="kpis" id="kpis"></div>
+  <section>
+    <h2>Open positions</h2>
+    <div class="table-wrap"><table><thead><tr><th>Contract</th><th>Opened</th><th class="num">Qty</th><th class="num">Paid</th><th class="num">Last bid</th><th class="num">Return</th><th>Why</th></tr></thead><tbody id="pos"></tbody></table></div>
+  </section>
+  <section>
+    <h2>Closed trades</h2>
+    <div class="table-wrap"><table><thead><tr><th>Closed</th><th>Contract</th><th class="num">Qty</th><th class="num">Sold at</th><th class="num">P&amp;L</th><th>Why</th></tr></thead><tbody id="closed"></tbody></table></div>
+  </section>
+  <section>
+    <h2>Decision log</h2>
+    <p class="muted">Newest first. Every post or headline that could move a stock gets a decision.</p>
+    <div class="table-wrap"><table><thead><tr><th>Time (ET)</th><th>Decision</th><th>Stock</th><th>Reason</th><th>Source</th></tr></thead><tbody id="dec"></tbody></table></div>
+  </section>
+  <section>
+    <h2>Rules</h2>
+    <div class="rules" id="rules"></div>
+    <p class="muted">Buys fill at the ask and sells at the bid, plus $0.65 per contract each way. Quotes come from Yahoo Finance and can lag by up to 15 minutes. No real orders are placed.</p>
+  </section>
+</div>
+<script>
+const D = {"state": {"cash": 1000.0, "positions": {}, "realized": 0.0, "started": "2026-11-23T11:55:55-05:00", "equity": 1000.0}, "trades": [], "decisions": [{"time": "2026-11-23T11:56:09-05:00", "source": "Truth Social posts Nov 22 evening + Nov 23 09:07/09:50 ET; Nvidia 8-K", "action": "No trade", "ticker": "NVDA", "reason": "Fade setup (H1) checked: NVDA +27% vs S&P since Friday. Skipped: the move rests on a hard fact (board reinstated Huang), and it is past the 15% post-move cap. Also, the only puts under the $250 limit are 19-25% out of the money, which needs NVDA to give back most of the gain."}], "updated": "Mon Nov 23, 2026 11:56 AM ET", "rules": {"start": 1000.0, "max_trade": 250.0, "max_open": 3, "tp": 0.6, "sl": -0.5, "hold": 7}};
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const money = x => (x < 0 ? "−$" : "$") + Math.abs(x).toFixed(2);
+const sp = x => (x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(x * 100).toFixed(1) + "%";
+const t = s => s ? s.replace("T", " ").slice(0, 16) : "";
+$("upd").textContent = "Updated " + D.updated;
+const st = D.state, start = D.rules.start;
+const eq = st.equity ?? st.cash;
+const closed = D.trades.filter(x => x.side === "SELL");
+const wins = closed.filter(x => x.pnl > 0).length;
+$("kpis").innerHTML = [
+  [money(eq), "Account value"],
+  [`<span class="${eq >= start ? "hit" : "miss"}">${sp(eq / start - 1)}</span>`, "Return since start"],
+  [money(st.cash), "Cash"],
+  [closed.length ? `${wins}/${closed.length}` : "0", "Winning closed trades"],
+].map(([v, k]) => `<div class="kpi"><span class="v">${v}</span><span class="k">${k}</span></div>`).join("");
+const pos = Object.entries(st.positions || {});
+$("pos").innerHTML = pos.length ? pos.map(([sym, p]) => {
+  const bid = p.last_bid ?? p.entry, r = (bid * 100 * p.qty - 0.65 * p.qty) / p.cost - 1;
+  return `<tr><td class="tick">${esc(sym)}</td><td>${t(p.opened)}</td><td class="num">${p.qty}</td><td class="num">${p.entry.toFixed(2)}</td><td class="num">${bid.toFixed(2)}</td><td class="num ${r >= 0 ? "hit" : "miss"}">${sp(r)}</td><td class="desc">${esc(p.reason)}</td></tr>`;
+}).join("") : `<tr><td colspan="7" class="empty">No open positions. The account is in cash.</td></tr>`;
+$("closed").innerHTML = closed.length ? closed.slice().reverse().map(x => `<tr><td>${t(x.time)}</td><td class="tick">${esc(x.symbol)}</td><td class="num">${x.qty}</td><td class="num">${x.price.toFixed(2)}</td><td class="num ${x.pnl >= 0 ? "hit" : "miss"}">${money(x.pnl)} (${sp(x.pnl_pct)})</td><td class="desc">${esc(x.reason)}</td></tr>`).join("") : `<tr><td colspan="6" class="empty">No closed trades yet.</td></tr>`;
+$("dec").innerHTML = D.decisions.length ? D.decisions.slice().reverse().map(x => `<tr><td style="white-space:nowrap">${t(x.time)}</td><td><span class="pill ${/^no/i.test(x.action) ? "none" : "trade"}">${esc(x.action)}</span></td><td class="tick">${esc(x.ticker)}</td><td class="desc" style="color:var(--fg);font-size:.85rem">${esc(x.reason)}</td><td class="desc">${esc(x.source)}</td></tr>`).join("") : `<tr><td colspan="5" class="empty">No decisions logged yet.</td></tr>`;
+const R = D.rules;
+$("rules").innerHTML = [`Start ${money(R.start)}`, `Max ${money(R.max_trade)} per trade`, `Max ${R.max_open} open`, `Take profit +${R.tp * 100}%`, `Stop loss ${R.sl * 100}%`, `Exit after ${R.hold} days`, "Buy calls and puts only", "No trades when IV is above 100%"].map(x => `<span>${x}</span>`).join("");
+</script>

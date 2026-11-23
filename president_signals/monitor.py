@@ -1,0 +1,378 @@
+"""Live monitor + $1,000 paper-trading account for presidential-post signals.
+
+Nothing here touches real money. Fills use live Yahoo Finance option quotes:
+buys fill at the ask, sells at the bid, plus $0.65 per contract, so results
+are not flattered. Yahoo quotes can lag the market by up to ~15 minutes.
+
+Commands
+  scan                       new presidential posts, White House actions, headlines
+  quote TICKER call|put      affordable contracts that pass the liquidity rules
+  buy SYMBOL QTY --reason .. open a paper position (checks the risk rules)
+  sell SYMBOL --reason ..    close a paper position at the bid
+  decide --source .. --action .. --reason ..   log a decision, including "no trade"
+  mark                       value open positions, flag exits; --auto-exit closes them
+  status                     cash, positions, P&L
+  dashboard                  write paper/dashboard.html
+"""
+
+from __future__ import annotations
+
+import argparse
+import html
+import json
+import re
+import sys
+import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import requests
+
+HERE = Path(__file__).resolve().parent
+PAPER = HERE / "paper"
+STATE = PAPER / "state.json"
+TRADES = PAPER / "trades.jsonl"
+DECISIONS = PAPER / "decisions.jsonl"
+ET_TZ = ZoneInfo("America/New_York")
+UA = {"User-Agent": "Mozilla/5.0 (paper-trading research monitor)"}
+
+# ---- risk rules (also written out in RULES.md) ----
+START_CASH = 1000.00
+MAX_PER_TRADE = 250.00        # 25% of the starting account
+MAX_OPEN = 3
+FEE = 0.65                    # per contract, each side
+MIN_DAYS, MAX_DAYS = 14, 60   # days to expiry when opening
+MIN_OI = 100
+MAX_SPREAD = 0.15             # (ask - bid) / mid
+TAKE_PROFIT = 0.60            # +60% on premium
+STOP_LOSS = -0.50             # -50% on premium
+MAX_HOLD_DAYS = 7             # calendar days
+EXIT_BEFORE_EXPIRY = 5        # close when this few days remain
+
+FEEDS = {
+    "post": "https://www.trumpstruth.org/feed",
+    "white_house": "https://www.whitehouse.gov/presidential-actions/feed/",
+}
+NEWS_QUERY = "https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en"
+
+
+# ---------- storage ----------
+
+def now_et() -> datetime:
+    return datetime.now(ET_TZ)
+
+
+def load_state() -> dict:
+    if STATE.exists():
+        return json.loads(STATE.read_text())
+    return {"cash": START_CASH, "positions": {}, "seen": [], "realized": 0.0,
+            "started": now_et().isoformat(timespec="seconds")}
+
+
+def save_state(s: dict) -> None:
+    PAPER.mkdir(parents=True, exist_ok=True)
+    s["seen"] = s["seen"][-3000:]
+    STATE.write_text(json.dumps(s, indent=2))
+
+
+def append(path: Path, row: dict) -> None:
+    PAPER.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as f:
+        f.write(json.dumps(row) + "\n")
+
+
+def read_jsonl(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    return [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
+
+
+# ---------- feeds ----------
+
+def strip_html(s: str) -> str:
+    s = re.sub(r"<br\s*/?>", " ", s or "")
+    return html.unescape(re.sub(r"<[^>]+>", "", s)).strip()
+
+
+def fetch_feed(url: str) -> list[dict]:
+    r = requests.get(url, headers=UA, timeout=30)
+    r.raise_for_status()
+    root = ET.fromstring(r.content)
+    items = []
+    for it in root.iter("item"):
+        get = lambda tag: (it.findtext(tag) or "").strip()
+        pub = get("pubDate")
+        try:
+            when = datetime.strptime(pub, "%a, %d %b %Y %H:%M:%S %z").astimezone(ET_TZ)
+        except ValueError:
+            when = None
+        text = strip_html(get("description")) or get("title")
+        items.append({"id": get("guid") or get("link"), "title": get("title"),
+                      "text": text, "link": get("link"), "when": when})
+    return items
+
+
+def cmd_scan(a):
+    s = load_state()
+    seen = set(s["seen"])
+    found = []
+    for kind, url in FEEDS.items():
+        try:
+            items = fetch_feed(url)
+        except Exception as e:  # keep going if one source is down
+            print(f"! {kind} feed failed: {e}")
+            continue
+        for it in items:
+            if it["id"] in seen:
+                continue
+            seen.add(it["id"])
+            s["seen"].append(it["id"])
+            if a.first_run:
+                continue
+            found.append((kind, it))
+    for q in a.news:
+        try:
+            for it in fetch_feed(NEWS_QUERY.format(q=requests.utils.quote(q)))[:15]:
+                if it["id"] in seen:
+                    continue
+                seen.add(it["id"])
+                s["seen"].append(it["id"])
+                if not a.first_run:
+                    found.append((f"news:{q}", it))
+        except Exception as e:
+            print(f"! news '{q}' failed: {e}")
+    save_state(s)
+    if a.first_run:
+        print("Marked current items as seen. Next scan shows only new ones.")
+        return
+    found.sort(key=lambda x: x[1]["when"] or now_et())
+    print(f"{len(found)} new item(s) as of {now_et():%Y-%m-%d %H:%M %Z}")
+    for kind, it in found:
+        when = it["when"].strftime("%a %m-%d %H:%M ET") if it["when"] else "?"
+        body = it["text"] if kind == "post" else it["title"]
+        if kind == "post" and not body.strip():
+            body = it["title"]
+        print(f"\n[{kind}] {when}  {it['link']}\n  {body[:700]}")
+
+
+# ---------- quotes ----------
+
+def market_session(t: datetime) -> str:
+    if t.weekday() >= 5:
+        return "closed"
+    m = t.hour * 60 + t.minute
+    return "open" if 9 * 60 + 30 <= m < 16 * 60 else "closed"
+
+
+def chain(ticker: str):
+    import yfinance as yf
+    return yf.Ticker(ticker)
+
+
+def contract_quote(symbol: str) -> dict:
+    """Look up one contract by OCC symbol, e.g. NVDA261218C00170000."""
+    m = re.match(r"^([A-Z.]+)(\d{2})(\d{2})(\d{2})([CP])(\d{8})$", symbol)
+    if not m:
+        raise SystemExit(f"Not an option symbol: {symbol}")
+    tk, yy, mm, dd, cp, k = m.groups()
+    expiry = f"20{yy}-{mm}-{dd}"
+    t = chain(tk)
+    ch = t.option_chain(expiry)
+    df = ch.calls if cp == "C" else ch.puts
+    row = df[df["contractSymbol"] == symbol]
+    if row.empty:
+        raise SystemExit(f"{symbol} not found in chain")
+    r = row.iloc[0]
+    spot = float(t.fast_info["last_price"])
+    return {"symbol": symbol, "ticker": tk, "type": "call" if cp == "C" else "put",
+            "strike": float(r.strike), "expiry": expiry, "bid": float(r.bid or 0),
+            "ask": float(r.ask or 0), "last": float(r.lastPrice or 0),
+            "oi": int(r.openInterest or 0), "iv": float(r.impliedVolatility or 0), "spot": spot}
+
+
+def cmd_quote(a):
+    t = chain(a.ticker.upper())
+    spot = float(t.fast_info["last_price"])
+    today = now_et().date()
+    print(f"{a.ticker.upper()} spot ${spot:.2f}. Contracts costing <= ${MAX_PER_TRADE:.0f} "
+          f"that pass liquidity rules ({MIN_DAYS}-{MAX_DAYS} days):")
+    shown = 0
+    for exp in t.options:
+        days = (datetime.strptime(exp, "%Y-%m-%d").date() - today).days
+        if not MIN_DAYS <= days <= MAX_DAYS:
+            continue
+        ch = t.option_chain(exp)
+        df = ch.calls if a.kind == "call" else ch.puts
+        for r in df.itertuples():
+            bid, ask = float(r.bid or 0), float(r.ask or 0)
+            if ask <= 0 or bid <= 0:
+                continue
+            mid = (bid + ask) / 2
+            cost = ask * 100 + FEE
+            moneyness = (r.strike / spot - 1) * (1 if a.kind == "call" else -1)
+            if (cost > MAX_PER_TRADE or (r.openInterest or 0) < MIN_OI
+                    or (ask - bid) / mid > MAX_SPREAD or not -0.05 <= moneyness <= 0.25):
+                continue
+            print(f"  {r.contractSymbol}  exp {exp} ({days}d)  strike {r.strike:>8.2f} "
+                  f"({moneyness:+.0%} OTM)  bid {bid:.2f} ask {ask:.2f}  "
+                  f"cost ${cost:.2f}  OI {int(r.openInterest)}  IV {r.impliedVolatility:.0%}")
+            shown += 1
+    if not shown:
+        print("  none: every liquid contract costs more than the per-trade limit.")
+
+
+# ---------- trading ----------
+
+def cmd_buy(a):
+    s = load_state()
+    if a.symbol in s["positions"]:
+        raise SystemExit("Already holding this contract.")
+    if len(s["positions"]) >= MAX_OPEN:
+        raise SystemExit(f"Rule: max {MAX_OPEN} open positions.")
+    if market_session(now_et()) != "open" and not a.force:
+        raise SystemExit("Market is closed; option quotes are stale. Wait for the open.")
+    q = contract_quote(a.symbol)
+    days = (datetime.strptime(q["expiry"], "%Y-%m-%d").date() - now_et().date()).days
+    mid = (q["bid"] + q["ask"]) / 2
+    problems = []
+    if not MIN_DAYS <= days <= MAX_DAYS:
+        problems.append(f"expiry {days}d outside {MIN_DAYS}-{MAX_DAYS}")
+    if q["oi"] < MIN_OI:
+        problems.append(f"open interest {q['oi']} < {MIN_OI}")
+    if q["bid"] <= 0 or (q["ask"] - q["bid"]) / mid > MAX_SPREAD:
+        problems.append("bid/ask spread too wide")
+    cost = a.qty * (q["ask"] * 100 + FEE)
+    if cost > MAX_PER_TRADE:
+        problems.append(f"cost ${cost:.2f} > ${MAX_PER_TRADE:.0f} limit")
+    if cost > s["cash"]:
+        problems.append(f"cost ${cost:.2f} > cash ${s['cash']:.2f}")
+    if problems:
+        raise SystemExit("Rejected by risk rules: " + "; ".join(problems))
+    s["cash"] -= cost
+    s["positions"][a.symbol] = {**q, "qty": a.qty, "entry": q["ask"], "cost": cost,
+                                "opened": now_et().isoformat(timespec="seconds"),
+                                "reason": a.reason}
+    save_state(s)
+    append(TRADES, {"time": now_et().isoformat(timespec="seconds"), "side": "BUY",
+                    "symbol": a.symbol, "qty": a.qty, "price": q["ask"], "cash_flow": -cost,
+                    "spot": q["spot"], "iv": q["iv"], "reason": a.reason})
+    print(f"BOUGHT {a.qty} {a.symbol} @ {q['ask']:.2f} (spot {q['spot']:.2f}, IV {q['iv']:.0%}). "
+          f"Cost ${cost:.2f}. Cash left ${s['cash']:.2f}")
+
+
+def close(s, symbol, reason, quote=None):
+    p = s["positions"][symbol]
+    q = quote or contract_quote(symbol)
+    proceeds = p["qty"] * (q["bid"] * 100 - FEE)
+    pnl = proceeds - p["cost"]
+    s["cash"] += proceeds
+    s["realized"] += pnl
+    del s["positions"][symbol]
+    append(TRADES, {"time": now_et().isoformat(timespec="seconds"), "side": "SELL",
+                    "symbol": symbol, "qty": p["qty"], "price": q["bid"], "cash_flow": proceeds,
+                    "pnl": pnl, "pnl_pct": pnl / p["cost"], "spot": q["spot"], "reason": reason})
+    print(f"SOLD {p['qty']} {symbol} @ {q['bid']:.2f}. P&L ${pnl:+.2f} ({pnl / p['cost']:+.0%})")
+
+
+def cmd_sell(a):
+    s = load_state()
+    if a.symbol not in s["positions"]:
+        raise SystemExit("Not holding that contract.")
+    close(s, a.symbol, a.reason)
+    save_state(s)
+
+
+def cmd_decide(a):
+    row = {"time": now_et().isoformat(timespec="seconds"), "source": a.source,
+           "action": a.action, "ticker": a.ticker, "reason": a.reason}
+    append(DECISIONS, row)
+    print("Logged:", row)
+
+
+def cmd_mark(a):
+    s = load_state()
+    today = now_et().date()
+    total = s["cash"]
+    print(f"Marks as of {now_et():%Y-%m-%d %H:%M %Z} (market {market_session(now_et())})")
+    for sym in list(s["positions"]):
+        p = s["positions"][sym]
+        q = contract_quote(sym)
+        value = p["qty"] * q["bid"] * 100
+        ret = (value - p["qty"] * FEE) / p["cost"] - 1
+        held = (today - datetime.fromisoformat(p["opened"]).date()).days
+        left = (datetime.strptime(p["expiry"], "%Y-%m-%d").date() - today).days
+        why = []
+        if ret >= TAKE_PROFIT:
+            why.append(f"take profit ({ret:+.0%})")
+        if ret <= STOP_LOSS:
+            why.append(f"stop loss ({ret:+.0%})")
+        if held >= MAX_HOLD_DAYS:
+            why.append(f"held {held}d")
+        if left <= EXIT_BEFORE_EXPIRY:
+            why.append(f"{left}d to expiry")
+        print(f"  {sym}: bid {q['bid']:.2f} (paid {p['entry']:.2f}), spot {q['spot']:.2f}, "
+              f"value ${value:.2f}, {ret:+.0%}" + (f"  -> EXIT: {', '.join(why)}" if why else ""))
+        if why and a.auto_exit and market_session(now_et()) == "open":
+            close(s, sym, "rule exit: " + ", ".join(why), q)
+        else:
+            total += value
+            p["last_bid"], p["last_mark"] = q["bid"], now_et().isoformat(timespec="seconds")
+    s["equity"] = total
+    save_state(s)
+    print(f"Equity ${total:.2f} (start ${START_CASH:.2f}, {total / START_CASH - 1:+.1%})")
+
+
+def cmd_status(a):
+    s = load_state()
+    eq = s.get("equity", s["cash"])
+    print(f"Cash ${s['cash']:.2f}  Equity (last mark) ${eq:.2f}  Realized P&L ${s['realized']:+.2f}  "
+          f"Return {eq / START_CASH - 1:+.1%}")
+    for sym, p in s["positions"].items():
+        print(f"  {sym} x{p['qty']} paid {p['entry']:.2f} on {p['opened'][:16]} - {p['reason']}")
+    closed = [t for t in read_jsonl(TRADES) if t["side"] == "SELL"]
+    if closed:
+        wins = sum(t["pnl"] > 0 for t in closed)
+        print(f"Closed trades: {len(closed)}, winners {wins} ({wins / len(closed):.0%})")
+
+
+# ---------- dashboard ----------
+
+def cmd_dashboard(a):
+    s = load_state()
+    data = {"state": {k: v for k, v in s.items() if k != "seen"},
+            "trades": read_jsonl(TRADES), "decisions": read_jsonl(DECISIONS)[-200:],
+            "updated": now_et().strftime("%a %b %d, %Y %I:%M %p ET"),
+            "rules": {"start": START_CASH, "max_trade": MAX_PER_TRADE, "max_open": MAX_OPEN,
+                      "tp": TAKE_PROFIT, "sl": STOP_LOSS, "hold": MAX_HOLD_DAYS}}
+    tpl = (HERE / "dashboard_template.html").read_text()
+    out = PAPER / "dashboard.html"
+    out.write_text(tpl.replace("__DATA__", json.dumps(data)))
+    print(f"Wrote {out}")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    p = sub.add_parser("scan"); p.add_argument("--first-run", action="store_true")
+    p.add_argument("--news", nargs="*", default=["Trump stocks", "Trump tariff", "Trump company CEO"])
+    p.set_defaults(f=cmd_scan)
+    p = sub.add_parser("quote"); p.add_argument("ticker"); p.add_argument("kind", choices=["call", "put"])
+    p.set_defaults(f=cmd_quote)
+    p = sub.add_parser("buy"); p.add_argument("symbol"); p.add_argument("qty", type=int)
+    p.add_argument("--reason", required=True); p.add_argument("--force", action="store_true")
+    p.set_defaults(f=cmd_buy)
+    p = sub.add_parser("sell"); p.add_argument("symbol"); p.add_argument("--reason", required=True)
+    p.set_defaults(f=cmd_sell)
+    p = sub.add_parser("decide"); p.add_argument("--source", required=True)
+    p.add_argument("--action", required=True); p.add_argument("--ticker", default="")
+    p.add_argument("--reason", required=True); p.set_defaults(f=cmd_decide)
+    p = sub.add_parser("mark"); p.add_argument("--auto-exit", action="store_true"); p.set_defaults(f=cmd_mark)
+    sub.add_parser("status").set_defaults(f=cmd_status)
+    sub.add_parser("dashboard").set_defaults(f=cmd_dashboard)
+    a = ap.parse_args()
+    a.f(a)
+
+
+if __name__ == "__main__":
+    main()
