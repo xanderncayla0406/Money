@@ -112,9 +112,13 @@ def check_prices(seen, first):
         if s not in close:
             continue
         col = close[s].dropna()
-        if len(col) < 16:
+        if len(col) < 18:
             continue
-        last, ago = float(col.iloc[-1]), float(col.iloc[-16])
+        # stock and ETF prints outside regular hours are thin and often bad; futures trade all night
+        if not s.endswith("=F") and m.market_session(m.now_et()) != "open":
+            continue
+        # median of 3 bars at each end, so one bad print can't fake a move
+        last, ago = float(col.iloc[-3:].median()), float(col.iloc[-18:-15].median())
         chg = last / ago - 1
         if abs(chg) >= PRICE_THRESH[s] and now - seen["price_last"].get(s, 0) > PRICE_COOLDOWN:
             seen["price_last"][s] = now
