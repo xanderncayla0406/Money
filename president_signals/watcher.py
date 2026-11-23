@@ -37,6 +37,7 @@ PRICE_THRESH = {"CL=F": 0.015, "BZ=F": 0.015, "USO": 0.015, "XLE": 0.012, "SPY":
                 "QQQ": 0.010, "^VIX": 0.10, "GLD": 0.010, "NVDA": 0.025, "LMT": 0.02}
 PRICE_COOLDOWN = 30 * 60
 MAX_AGE_HOURS = 3
+POST_MAX_AGE_HOURS = 24   # posts read late after an outage still count
 
 STRONG = ["strike", "strikes", "attack", "missile", "drone", "hormuz", "closes", "closure", "closed",
           "blockade", "ceasefire", "cease-fire", "truce", "deal", "agreement", "tariff", "sanction",
@@ -85,7 +86,8 @@ def check_feed(seen, url, kind, first, min_score):
         if first or dup:
             continue
         # search results mix in old stories; only act on fresh ones
-        if it["when"] is None or (m.now_et() - it["when"]).total_seconds() > MAX_AGE_HOURS * 3600:
+        max_age = POST_MAX_AGE_HOURS if kind == "post" else MAX_AGE_HOURS
+        if it["when"] is None or (m.now_et() - it["when"]).total_seconds() > max_age * 3600:
             continue
         text = it["text"] if kind == "post" else it["title"]
         s = score(text)
