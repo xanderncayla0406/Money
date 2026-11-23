@@ -36,6 +36,7 @@ NEWS_QUERIES = ["Iran", "Strait of Hormuz", "oil prices", "OPEC", "Trump tariff"
 PRICE_THRESH = {"CL=F": 0.015, "BZ=F": 0.015, "USO": 0.015, "XLE": 0.012, "SPY": 0.008,
                 "QQQ": 0.010, "^VIX": 0.10, "GLD": 0.010, "NVDA": 0.025, "LMT": 0.02}
 PRICE_COOLDOWN = 30 * 60
+MAX_AGE_HOURS = 3
 
 STRONG = ["strike", "strikes", "attack", "missile", "drone", "hormuz", "closes", "closure", "closed",
           "blockade", "ceasefire", "cease-fire", "truce", "deal", "agreement", "tariff", "sanction",
@@ -83,6 +84,9 @@ def check_feed(seen, url, kind, first, min_score):
         seen["titles"].append(key)
         if first or dup:
             continue
+        # search results mix in old stories; only act on fresh ones
+        if it["when"] is None or (m.now_et() - it["when"]).total_seconds() > MAX_AGE_HOURS * 3600:
+            continue
         text = it["text"] if kind == "post" else it["title"]
         s = score(text)
         if kind == "post":
@@ -129,7 +133,7 @@ def main():
             check_feed(seen, m.FEEDS["post"], "post", first, 1)
             queries = NEWS_QUERIES if first else [NEWS_QUERIES[tick % len(NEWS_QUERIES)]]
             for q in queries:
-                check_feed(seen, m.NEWS_QUERY.format(q=requests.utils.quote(q)), f"news:{q}", first, 2)
+                check_feed(seen, m.NEWS_QUERY.format(q=requests.utils.quote(q + " when:1d")), f"news:{q}", first, 2)
             if first or tick % 5 == 0:
                 check_feed(seen, m.FEEDS["white_house"], "white_house", first, 1)
             check_prices(seen, first)
