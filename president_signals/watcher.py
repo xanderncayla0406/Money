@@ -129,16 +129,22 @@ def main():
     first = not seen["ids"]
     tick = 0
     while True:
-        try:
-            check_feed(seen, m.FEEDS["post"], "post", first, 1)
-            queries = NEWS_QUERIES if first else [NEWS_QUERIES[tick % len(NEWS_QUERIES)]]
-            for q in queries:
-                check_feed(seen, m.NEWS_QUERY.format(q=requests.utils.quote(q + " when:1d")), f"news:{q}", first, 2)
-            if first or tick % 5 == 0:
-                check_feed(seen, m.FEEDS["white_house"], "white_house", first, 1)
-            check_prices(seen, first)
-        except Exception:
-            traceback.print_exc()
+        def guarded(fn, *args):
+            try:
+                fn(*args)
+            except requests.HTTPError as e:   # rate limits and outages: skip this source this minute
+                print(f"{m.now_et():%H:%M} {e}", flush=True)
+            except Exception:
+                traceback.print_exc()
+
+        guarded(check_feed, seen, m.FEEDS["post"], "post", first, 1)
+        queries = NEWS_QUERIES if first else [NEWS_QUERIES[tick % len(NEWS_QUERIES)]]
+        for q in queries:
+            guarded(check_feed, seen, m.NEWS_QUERY.format(q=requests.utils.quote(q + " when:1d")),
+                    f"news:{q}", first, 2)
+        if first or tick % 5 == 0:
+            guarded(check_feed, seen, m.FEEDS["white_house"], "white_house", first, 1)
+        guarded(check_prices, seen, first)
         first = False  # the first pass only marks what already exists as seen
         save_seen(seen)
         HEARTBEAT.write_text(m.now_et().isoformat(timespec="seconds"))
