@@ -82,3 +82,7 @@ That isn't an edge, so oil and war alerts get a logged direction call (`decide -
 - **Symbols:** NOC and RTX (defense) and FRO (oil tankers).
 - **War and supply keywords:** mines, escorts, navy, talks, pipelines, refineries, output, reserves, surplus, Houthis, Israel.
 - **Day moves:** every 5 minutes the watcher compares today's price with the previous close: 3% for oil, defense and USO; 2.5% for XLE; 5% for FRO; 2% for gold and QQQ; 1.5% for SPY. That catches slow grinds that never jump 1.5% in 15 minutes, like oil's 20% slide this month.
+
+### Tue Nov 24, 2026, 17:45 ET: one alert per story
+
+The same war headline arrives from a dozen outlets over several hours, each one waking triage. The watcher now skips a headline when it shares at least 3 content words, and half of the shorter headline's words, with one alerted in the last 12 hours. On today's 85 headline alerts that keeps 58. Posts and price alerts aren't filtered. The 3-word minimum keeps a short new headline such as "US strikes Iran" from being swallowed by older strike talk. No rule or limit changes.

@@ -73,6 +73,32 @@ def norm(title: str) -> str:
     return " ".join(re.findall(r"[a-z0-9]+", t)[:10])
 
 
+STOP = set("a an the of in on at to for and or but as by with from is are was were be has have had its it "
+           "that this after over amid into says say said report reports could would will may new".split())
+SAME_STORY = 0.5   # share of the shorter headline's content words that marks a story already alerted
+STORY_HOURS = 12
+
+
+def words(title: str) -> set:
+    t = re.sub(r"\s+-\s+[^-]+$", "", title.lower())          # drop " - Publisher"
+    return {w for w in re.findall(r"[a-z0-9]+", t) if w not in STOP and len(w) > 2}
+
+
+def same_story(seen, title: str) -> bool:
+    """True if a headline alerted in the last STORY_HOURS shares most of its words with this one."""
+    now = time.time()
+    seen["stories"] = [x for x in seen.get("stories", []) if now - x[0] < STORY_HOURS * 3600]
+    w = words(title)
+    for _, prev in seen["stories"]:
+        prev = set(prev)
+        shared = len(w & prev)
+        # at least 3 content words in common, so a short new headline ("US strikes Iran") isn't swallowed
+        if w and prev and shared >= 3 and shared / min(len(w), len(prev)) >= SAME_STORY:
+            return True
+    seen["stories"].append([now, sorted(w)])
+    return False
+
+
 def score(text: str) -> int:
     t = text.lower()
     return sum(1 for w in STRONG if w in t)
@@ -107,6 +133,8 @@ def check_feed(seen, url, kind, first, min_score):
                 continue
             s += 1
         if s >= min_score:
+            if kind.startswith("news:") and same_story(seen, it["title"]):
+                continue
             alert(kind, score=s, text=text[:600], link=it["link"],
                   published=it["when"].isoformat() if it["when"] else None)
 
