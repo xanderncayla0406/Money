@@ -29,7 +29,7 @@ ALERTS = PAPER / "alerts.jsonl"
 HEARTBEAT = PAPER / "watcher.heartbeat"
 SEEN = PAPER / "watcher_seen.json"
 
-NEWS_QUERIES = ["Iran", "Strait of Hormuz", "oil prices", "OPEC", "Trump tariff",
+NEWS_QUERIES = ["Trump Truth Social post", "Iran", "Strait of Hormuz", "oil prices", "OPEC", "Trump tariff",
                 "Federal Reserve", "sanctions", "Trump announces", "stock market breaking"]
 
 # 15-minute move that counts as a shock, by symbol
@@ -138,8 +138,9 @@ def main():
         def guarded(fn, *args):
             try:
                 fn(*args)
-            except requests.HTTPError as e:   # rate limits and outages: skip this source this minute
-                print(f"{m.now_et():%H:%M} {e}", flush=True)
+            except (requests.HTTPError, requests.Timeout, requests.ConnectionError) as e:
+                # rate limits, timeouts and outages: skip this source this minute
+                print(f"{m.now_et():%H:%M} {type(e).__name__}: {str(e)[:160]}", flush=True)
             except Exception:
                 traceback.print_exc()
 

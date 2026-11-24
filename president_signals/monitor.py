@@ -97,7 +97,7 @@ def strip_html(s: str) -> str:
 
 
 def fetch_feed(url: str) -> list[dict]:
-    r = requests.get(url, headers=UA, timeout=30)
+    r = requests.get(url, headers=UA, timeout=15)
     r.raise_for_status()
     root = ET.fromstring(r.content)
     items = []
