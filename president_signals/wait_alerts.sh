@@ -1,15 +1,18 @@
 #!/bin/bash
 # Exits (waking Claude) when new alerts arrive or the watcher stops. Batches alerts for 60s,
-# or 15 minutes when they are all headlines: those only get direction calls, never money,
-# and the same story arrives from many outlets over several minutes.
+# or up to 15 minutes when they are all headlines: those only get direction calls, never money,
+# and the same story arrives from many outlets over several minutes. A post or price alert
+# arriving during that wait ends it straight away.
 cd "$(dirname "$0")/paper"
 touch alerts.jsonl
 start=$(wc -l < alerts.jsonl)
+only_news() { ! tail -n +"$((start + 1))" alerts.jsonl | grep -qv '"kind": "news:'; }
 while true; do
   now=$(wc -l < alerts.jsonl)
   if [ "$now" -gt "$start" ]; then
     sleep 60
-    if ! tail -n +"$((start + 1))" alerts.jsonl | grep -qv '"kind": "news:'; then sleep 840; fi
+    waited=60
+    while only_news && [ "$waited" -lt 900 ]; do sleep 15; waited=$((waited + 15)); done
     echo "NEW ALERTS:"; tail -n +"$((start + 1))" alerts.jsonl
     exit 0
   fi
