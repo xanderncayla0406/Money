@@ -72,3 +72,13 @@ That isn't an edge, so oil and war alerts get a logged direction call (`decide -
 7. If anything changed, rebuild and republish the dashboard, then commit and push `paper/`.
 
 **Direction calls on everything.** Any alert judged likely to move a price also gets a direction call, even when no trade is placed. That measures accuracy across far more events than $1,000 can trade.
+
+### Tue Nov 24, 2026, 13:40 ET: news bug fixed, wider oil and war coverage
+
+**Bug.** Google News dates end in "GMT", which the feed parser rejected, so every headline had no date and the freshness filter dropped it. Since the first day, no oil, Iran or Hormuz headline could raise an alert. The parser now reads RFC 2822 dates properly.
+
+**Coverage added** (no change to H1, H2 or H3, or to any risk limit):
+- **Searches:** Iran tanker attack, Israel Iran, Iran talks, Houthi Red Sea, strategic petroleum reserve.
+- **Symbols:** NOC and RTX (defense) and FRO (oil tankers).
+- **War and supply keywords:** mines, escorts, navy, talks, pipelines, refineries, output, reserves, surplus, Houthis, Israel.
+- **Day moves:** every 5 minutes the watcher compares today's price with the previous close: 3% for oil, defense and USO; 2.5% for XLE; 5% for FRO; 2% for gold and QQQ; 1.5% for SPY. That catches slow grinds that never jump 1.5% in 15 minutes, like oil's 20% slide this month.

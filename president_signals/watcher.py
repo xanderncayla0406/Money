@@ -5,6 +5,7 @@ Sources
                    price snapshot of oil, the market, volatility and watchlist stocks
   rotating ~1/min  Google News searches (Iran, Hormuz, oil, OPEC, tariffs, Fed, ...)
   every 5 minutes  White House presidential actions
+                   daily moves vs the previous close (oil, energy, defense, tankers, gold, market)
 
 It writes one JSON line per alert to paper/alerts.jsonl and a heartbeat to
 paper/watcher.heartbeat. Start it detached:
@@ -30,11 +31,16 @@ HEARTBEAT = PAPER / "watcher.heartbeat"
 SEEN = PAPER / "watcher_seen.json"
 
 NEWS_QUERIES = ["Trump Truth Social post", "Iran", "Strait of Hormuz", "oil prices", "OPEC", "Trump tariff",
-                "Federal Reserve", "sanctions", "Trump announces", "stock market breaking"]
+                "Iran tanker attack", "Federal Reserve", "Israel Iran", "sanctions", "Iran talks",
+                "Houthi Red Sea", "Trump announces", "strategic petroleum reserve", "stock market breaking"]
 
 # 15-minute move that counts as a shock, by symbol
 PRICE_THRESH = {"CL=F": 0.015, "BZ=F": 0.015, "USO": 0.015, "XLE": 0.012, "SPY": 0.008,
-                "QQQ": 0.010, "^VIX": 0.10, "GLD": 0.010, "NVDA": 0.025, "LMT": 0.02}
+                "QQQ": 0.010, "^VIX": 0.10, "GLD": 0.010, "NVDA": 0.025, "LMT": 0.02,
+                "NOC": 0.02, "RTX": 0.02, "FRO": 0.03}
+# move since the previous daily close that counts, so slow grinds get flagged too (checked every 5 minutes)
+DAY_THRESH = {"CL=F": 0.03, "BZ=F": 0.03, "USO": 0.03, "XLE": 0.025, "LMT": 0.03, "NOC": 0.03,
+              "RTX": 0.03, "FRO": 0.05, "GLD": 0.02, "SPY": 0.015, "QQQ": 0.02}
 PRICE_COOLDOWN = 30 * 60
 MAX_AGE_HOURS = 3
 POST_MAX_AGE_HOURS = 24   # posts read late after an outage still count
@@ -42,7 +48,11 @@ POST_MAX_AGE_HOURS = 24   # posts read late after an outage still count
 STRONG = ["strike", "strikes", "attack", "missile", "drone", "hormuz", "closes", "closure", "closed",
           "blockade", "ceasefire", "cease-fire", "truce", "deal", "agreement", "tariff", "sanction",
           "opec", "cut", "explosion", "seized", "tanker", "invade", "nuclear", "emergency",
-          "rate cut", "rate hike", "resign", "fired", "ban", "executive order", "halt", "suspend"]
+          "rate cut", "rate hike", "resign", "fired", "ban", "executive order", "halt", "suspend",
+          # war and oil supply
+          " mine", "escort", "navy", "warship", "retaliat", "assassinat", "target", "invasion", "war ",
+          "talks", "deadlock", "collapse", "reopen", "pipeline", "refinery", "output", "production",
+          "petroleum reserve", "surplus", "houthi", "red sea", "israel"]
 COMPANY_HINT = re.compile(r"\b([A-Z][a-zA-Z&]+ (?:Inc|Corp|Corporation|Company)|[A-Z]{2,}[a-z]*)\b")
 
 
@@ -129,6 +139,30 @@ def check_prices(seen, first):
                       as_of=str(col.index[-1]))
 
 
+def check_day_moves(seen, first):
+    import yfinance as yf
+    syms = list(DAY_THRESH)
+    df = yf.download(syms, period="5d", interval="1d", progress=False, auto_adjust=False)
+    if df is None or df.empty:
+        return
+    close = df["Close"]
+    done = seen.setdefault("day_alerts", [])
+    for s in syms:
+        if s not in close:
+            continue
+        col = close[s].dropna()
+        if len(col) < 2:
+            continue
+        chg = float(col.iloc[-1]) / float(col.iloc[-2]) - 1
+        key = f"{s}:{col.index[-1].date()}:{'up' if chg > 0 else 'down'}"
+        if abs(chg) >= DAY_THRESH[s] and key not in done:
+            done.append(key)
+            if not first:
+                alert("price_day", symbol=s, move_day=round(chg, 4), last=round(float(col.iloc[-1]), 2),
+                      prev_close=round(float(col.iloc[-2]), 2))
+    seen["day_alerts"] = done[-500:]
+
+
 def main():
     PAPER.mkdir(parents=True, exist_ok=True)
     seen = load_seen()
@@ -152,6 +186,8 @@ def main():
         if first or tick % 5 == 0:
             guarded(check_feed, seen, m.FEEDS["white_house"], "white_house", first, 1)
         guarded(check_prices, seen, first)
+        if first or tick % 5 == 0:
+            guarded(check_day_moves, seen, first)
         first = False  # the first pass only marks what already exists as seen
         save_seen(seen)
         HEARTBEAT.write_text(m.now_et().isoformat(timespec="seconds"))

@@ -8,7 +8,7 @@ You get one or more alerts from `paper/alerts.jsonl`. You only investigate and r
    Useful symbols:
    - Oil: CL=F (WTI), BZ=F (Brent), USO
    - Market: SPY, QQQ, ^VIX
-   - Sectors: XLE (energy), LMT (defense), GLD (gold)
+   - Sectors: XLE (energy), LMT, NOC, RTX (defense), FRO (oil tankers), GLD (gold)
    - Any company named in the alert
 3. **Is it already priced in?** Compare the price now with the price just before the news, using `yf.download(SYMBOL, period="1d", interval="5m")`.
 4. **Rate it from 0 to 3:**

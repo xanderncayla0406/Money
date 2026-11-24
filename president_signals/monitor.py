@@ -25,6 +25,7 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -105,8 +106,9 @@ def fetch_feed(url: str) -> list[dict]:
         get = lambda tag: (it.findtext(tag) or "").strip()
         pub = get("pubDate")
         try:
-            when = datetime.strptime(pub, "%a, %d %b %Y %H:%M:%S %z").astimezone(ET_TZ)
-        except ValueError:
+            # RFC 2822 dates; Google News writes "GMT", which strptime's %z rejects
+            when = parsedate_to_datetime(pub).astimezone(ET_TZ)
+        except (TypeError, ValueError):
             when = None
         text = strip_html(get("description")) or get("title")
         items.append({"id": get("guid") or get("link"), "title": get("title"),
