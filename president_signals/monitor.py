@@ -314,6 +314,10 @@ def cmd_score(a):
         if df is None or df.empty:
             continue
         closes = df["Close"].dropna()
+        # only finished days count: today's bar is still moving until the 4pm close (futures trade on past it,
+        # so 5pm gives settlement time); grading on it marked Brent's 1-day call early at 2am
+        now = now_et()
+        closes = closes[[d.date() < now.date() or (d.date() == now.date() and now.hour >= 17) for d in closes.index]]
         # first close strictly after the call (a call made after 4pm counts from the next day)
         after = closes[[d.date() > made.date() or (d.date() == made.date() and made.hour < 16)
                         for d in closes.index]]

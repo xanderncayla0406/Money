@@ -94,3 +94,7 @@ At 20:05 the day-move check fired on SPY +4.7%, QQQ +7%, GLD +3.1% and USO −4.
 ### Wed Nov 25, 2026, 00:20 ET: false Brent day-move alert fixed
 
 At 00:14 the day-move check fired on Brent −4.3% (87.46 against a prior close of 91.40). It was false: the daily price series gave Tuesday's close as 91.40, while the hourly bars show Brent ended Tuesday near 88.5, so the real move was about −1.2%. A day move now has to be confirmed against the last hourly bar of the previous session before it alerts. The alert stays in the file, marked here as false; it led to no decision.
+
+### Wed Nov 25, 2026, 02:15 ET: calls graded only on finished days
+
+At 02:10 the scorer graded the Brent call's 1-day result on Wednesday's price bar, which was only a few hours old (futures trade overnight). That grade was undone. Calls are now graded only on daily closes from finished days: today's bar counts after 5pm ET.
