@@ -8,7 +8,8 @@ touch alerts.jsonl
 start=$(wc -l < alerts.jsonl)
 only_news() { ! tail -n +"$((start + 1))" alerts.jsonl | grep -qv '"kind": "news:'; }
 # usage saver (Nov 25): headlines scored below 4 never wake Claude; they wait for the scheduled checks
-urgent() { tail -n +"$((start + 1))" alerts.jsonl | grep -v '"kind": "news:' | grep -q . || tail -n +"$((start + 1))" alerts.jsonl | grep -q '"score": [4-9]'; }
+# posts with no market keywords (score 1) also wait for the scheduled checks
+urgent() { tail -n +"$((start + 1))" alerts.jsonl | grep -v '"kind": "news:' | grep -v '"kind": "post", "score": 1,' | grep -q . || tail -n +"$((start + 1))" alerts.jsonl | grep -q '"score": [4-9]'; }
 while true; do
   now=$(wc -l < alerts.jsonl)
   if [ "$now" -gt "$start" ] && urgent; then

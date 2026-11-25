@@ -145,3 +145,4 @@ The study has only 47 paths, so each expected return is uncertain by about Â±8â€
 **Honest odds:** short-dated options lose value fastest, and on average their buyers lose. Each quick trade is closer to a coin flip with a big payoff than a measured edge. Expect most of them to expire worthless; the account survives that because each is capped at $200.
 
 Also changed for usage: `wait_alerts.sh` now wakes Claude only for posts, price alerts and headlines scored 4 or more. Lower-scored headlines wait for the scheduled checks.
+- **Nov 25, 15:45 ET, usage:** presidential posts with no market keywords (score 1, e.g. Iowa/CNN posts) no longer wake Claude; they're reviewed at the scheduled checks. Posts with any war, oil, tariff or market keyword still wake it at once.
