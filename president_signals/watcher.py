@@ -189,13 +189,28 @@ def check_day_moves(seen, first):
             continue
         if col.index[-1].date() < m.now_et().date():
             continue
-        chg = float(col.iloc[-1]) / float(col.iloc[-2]) - 1
+        last, prev = float(col.iloc[-1]), float(col.iloc[-2])
+        chg = last / prev - 1
+        if abs(chg) < DAY_THRESH[s]:
+            continue
+        # the daily series has served a wrong prior close (Brent 91.40 when hourly bars ended the day at 88.5),
+        # so confirm a candidate against the last hourly bar of the previous session before alerting
+        hourly = yf.download(s, period="5d", interval="60m", progress=False, auto_adjust=False)
+        if hourly is None or hourly.empty:
+            continue
+        h = hourly["Close"].squeeze().dropna()
+        before = h[[ts.date() < col.index[-1].date() for ts in h.index]]
+        if before.empty:
+            continue
+        prev = float(before.iloc[-1])
+        chg = last / prev - 1
+        if abs(chg) < DAY_THRESH[s]:
+            continue
         key = f"{s}:{col.index[-1].date()}:{'up' if chg > 0 else 'down'}"
-        if abs(chg) >= DAY_THRESH[s] and key not in done:
+        if key not in done:
             done.append(key)
             if not first:
-                alert("price_day", symbol=s, move_day=round(chg, 4), last=round(float(col.iloc[-1]), 2),
-                      prev_close=round(float(col.iloc[-2]), 2))
+                alert("price_day", symbol=s, move_day=round(chg, 4), last=round(last, 2), prev_close=round(prev, 2))
     seen["day_alerts"] = done[-500:]
 
 

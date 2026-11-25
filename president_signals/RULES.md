@@ -90,3 +90,7 @@ The same war headline arrives from a dozen outlets over several hours, each one 
 ### Tue Nov 24, 2026, 20:10 ET: false day-move alerts fixed
 
 At 20:05 the day-move check fired on SPY +4.7%, QQQ +7%, GLD +3.1% and USO −4.5%. All four were false: after hours the price feed had dropped today's daily bar, so the check compared Monday's close with Friday's. Stocks and ETFs are now checked for day moves only while the market is open, and futures only when the latest bar is today's. The four alerts stay in the file, marked here as false; none led to a decision.
+
+### Wed Nov 25, 2026, 00:20 ET: false Brent day-move alert fixed
+
+At 00:14 the day-move check fired on Brent −4.3% (87.46 against a prior close of 91.40). It was false: the daily price series gave Tuesday's close as 91.40, while the hourly bars show Brent ended Tuesday near 88.5, so the real move was about −1.2%. A day move now has to be confirmed against the last hourly bar of the previous session before it alerts. The alert stays in the file, marked here as false; it led to no decision.
