@@ -131,6 +131,8 @@ def check_feed(seen, url, kind, first, min_score):
             # skip media-only posts and reposts with no words of his own
             if len(re.sub(r"https?://\S+|RT:", "", text).strip()) < 25:
                 continue
+            if re.match(r"\s*RT\s*@", text):     # reposts of other accounts
+                continue
             s += 1
         if s >= min_score:
             if kind.startswith("news:") and same_story(seen, it["title"]):
