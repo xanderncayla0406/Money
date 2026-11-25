@@ -225,3 +225,6 @@
 {"time": "2026-11-25T09:32:45-05:00", "kind": "price_day", "symbol": "GLD", "move_day": -0.0238, "last": 317.73, "prev_close": 325.48}
 {"time": "2026-11-25T09:32:45-05:00", "kind": "price_day", "symbol": "SPY", "move_day": -0.0233, "last": 702.05, "prev_close": 718.79}
 {"time": "2026-11-25T09:32:45-05:00", "kind": "price_day", "symbol": "QQQ", "move_day": -0.035, "last": 615.74, "prev_close": 638.09}
+{"time": "2026-11-25T09:40:03-05:00", "kind": "news:Strait of Hormuz", "score": 2, "text": "Violating Oil Tanker Catches Fire East of Strait of Hormuz - WANA News Agency", "link": "https://news.google.com/rss/articles/CBMihAFBVV95cUxOdWxGX1JmSnVHckh3eWVKZFdCbl9NYzJwNlUxbDAxWFFXd3BraW90RjlXc1k2Q0Z3bm9IdE9Pb2JvSUpGRXRvZi1nN2FJazlUZ1JuZWlacFZWdDNLaXJoQ3R3R05oNE9jUlZsMUUzV092cFoxMWVnT0hqYTVXdFRGcXNRMFQ?oc=5", "published": "2026-11-25T09:33:43-05:00"}
+{"time": "2026-11-25T09:41:06-05:00", "kind": "price", "symbol": "SPY", "move_15m": -0.0081, "last": 698.09, "as_of": "2026-11-25 09:41:00-05:00"}
+{"time": "2026-11-25T09:41:06-05:00", "kind": "price", "symbol": "QQQ", "move_15m": -0.012, "last": 610.59, "as_of": "2026-11-25 09:41:00-05:00"}
