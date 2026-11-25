@@ -52,7 +52,8 @@ MAX_IV = 1.00                 # no new trade above 100% implied volatility
 TAKE_PROFIT = 1.00            # +100% on premium (was +60%)
 STOP_LOSS = -0.50             # -50% on premium
 MAX_HOLD_DAYS = 30            # calendar days (was 7); everything closes by HARD_EXIT anyway
-HARD_EXIT = datetime(2026, 12, 23).date()   # close all positions from this day: the Christmas target
+HARD_EXIT = datetime(2026, 12, 23).date()
+INDEX_ETFS = {"SPY", "QQQ", "IWM", "DIA"}   # index call debit spreads may skip the premium stop   # close all positions from this day: the Christmas target
 EXIT_BEFORE_EXPIRY = 5        # close when this few days remain
 
 FEEDS = {
@@ -281,10 +282,13 @@ def cmd_buy(a):
         problems.append(f"cost ${cost:.2f} > ${MAX_PER_TRADE:.0f} limit")
     if cost > s["cash"]:
         problems.append(f"cost ${cost:.2f} > cash ${s['cash']:.2f}")
+    if getattr(a, "no_stop", False) and not (q["legs"] == 2 and q["type"] == "call spread" and q["ticker"] in INDEX_ETFS):
+        problems.append("--no-stop is allowed only on index call debit spreads")
     if problems:
         raise SystemExit("Rejected by risk rules: " + "; ".join(problems))
     s["cash"] -= cost
     s["positions"][a.symbol] = {**q, "qty": a.qty, "entry": q["ask"], "cost": cost,
+                                "stop": None if getattr(a, "no_stop", False) else STOP_LOSS,
                                 "opened": now_et().isoformat(timespec="seconds"),
                                 "reason": a.reason}
     save_state(s)
@@ -387,7 +391,8 @@ def cmd_mark(a):
         elif p.get("max_value") and q["bid"] >= 0.8 * p["max_value"]:
             # a spread can't gain more than its width, so take it once 80% of that is in hand
             why.append(f"spread at {q['bid'] / p['max_value']:.0%} of max value")
-        if ret <= STOP_LOSS:
+        stop = p.get("stop", STOP_LOSS)
+        if stop is not None and ret <= stop:
             why.append(f"stop loss ({ret:+.0%})")
         if held >= MAX_HOLD_DAYS:
             why.append(f"held {held}d")
@@ -446,6 +451,8 @@ def main():
     p = sub.add_parser("quote"); p.add_argument("ticker"); p.add_argument("kind", choices=["call", "put"])
     p.set_defaults(f=cmd_quote)
     p = sub.add_parser("buy"); p.add_argument("symbol"); p.add_argument("qty", type=int)
+    p.add_argument("--no-stop", action="store_true",
+                   help="index call debit spreads only (RULES.md, Nov 25 12:00): no premium stop, the debit is the max loss")
     p.add_argument("--reason", required=True); p.add_argument("--force", action="store_true")
     p.set_defaults(f=cmd_buy)
     p = sub.add_parser("sell"); p.add_argument("symbol"); p.add_argument("--reason", required=True)

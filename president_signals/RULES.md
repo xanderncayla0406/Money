@@ -123,3 +123,15 @@ Each trade's reason must state the thesis, the evidence and what would prove it 
 | Open positions, expiry, liquidity, stop loss, IV cap | | unchanged (3, 14 to 60 days, OI 100 and 15% spread per leg, −50%, 100%) |
 
 Direction calls (H3) keep being logged and graded alongside, so the record shows both the predictions and the trades.
+
+### Wed Nov 25, 2026, 11:40 ET: no premium stop on index call spreads
+
+**What changed:** call debit spreads on SPY, QQQ, IWM or DIA no longer use the −50% premium stop. They are held until the take-profit (80% of the spread's width, or +100%), 5 days before expiry, or the Dec 23 exit. Every other position keeps the −50% stop. The change applies to the QQQ 630/635 spread already held, and to new index call spreads bought with `monitor.py buy --no-stop`.
+
+**Why:** a debit spread's loss is already capped at what was paid, so the stop doesn't limit the worst case; it only decides when to sell. A test on 47 past crashes like this one (2-day QQQ drop over 5% with VIX above 28, since 1990), run before any new trade, found:
+- In 68% of cases the index fell another 3% or more before rebounding, and the −50% stop sold during that dip.
+- With no stop, expected return was 10–16 points better on every call spread tested. Examples: SPY Jan 15 730/735 went from −1% to +9%; QQQ Jan 15 650/660 from −2% to +14%; the held QQQ 630/635 from −20% to −4%.
+- Stops on the index level (close if QQQ closes 8% or 10% below entry) were worse than no stop, because by then the spread is nearly worthless.
+- The cost: the worst 10% of outcomes lose about the whole premium, and call spreads lose together in a continued crash.
+
+The study has only 47 paths, so each expected return is uncertain by about ±8–15 points. The put spread tested (IWM) did better with the stop, so puts keep it.
