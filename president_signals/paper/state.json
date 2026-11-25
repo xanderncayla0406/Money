@@ -22,8 +22,8 @@
       "cost": 257.3,
       "opened": "2026-11-25T11:01:57-05:00",
       "reason": "H4 research trade: QQQ rebound. QQQ fell 6.1% in two days (651 to 611) with VIX at 33 on the AI and chip sell-off. Base rate since 2000: after a 2-day QQQ drop over 5% with VIX above 28 (40 cases), QQQ was higher 20 trading days later 65% of the time, mean +4.9%, median +3.6%, and only 10% of cases fell another 5%. Single stocks show no such edge (NVDA after 12% 2-day drops: 45% up), so this is an index bet. Dec 31 630/635 call spread: pays its full 5.00 if QQQ is at or above 635 (+3.9%) at expiry; options are expensive at 35% IV, so selling the 635 leg cuts the cost. Wrong if QQQ closes below 590 (another -3.5%) or the Dec 3 Huang hearing or Dec 9 Fed decision turns the sell-off into a trend. Exits: stop -50%, take profit at 80% of width, close by Dec 23.",
-      "last_bid": 2.73,
-      "last_mark": "2026-11-25T14:22:41-05:00",
+      "last_bid": 2.75,
+      "last_mark": "2026-11-25T15:08:53-05:00",
       "stop": null
     },
     "QQQ270115C00655000/QQQ270115C00665000": {
@@ -48,8 +48,8 @@
       "stop": null,
       "opened": "2026-11-25T11:36:56-05:00",
       "reason": "H4 research trade #2: QQQ rebound into January, sized for upside. Same base rate as trade #1 (47 de-clustered 2-day QQQ crashes with VIX above 28 since 1990: NDX up 72% of the time 18 trading days later, mean +4.3%). The path test of those crashes under the Nov 25 11:40 rule (no premium stop, take profit at 80% of width, forced exit Dec 23) favoured Jan 15 call spreads around 650/660 (EV +14%, bear periods +11%, since 2010 +13%; 53% chance of profit, 36% chance of +100% or more; -2% under the old -50% stop). 650/660 quoted 3.75, over the $350 cap, so this is the next strike up: starts paying at 655 (+7.4%), worth up to 10.00. Jan 15 expiry leaves time value at the Dec 23 exit. Risk: it can lose the whole debit and loses together with the 630/635 spread if this becomes a 2000/2008/2022-style bear leg (QQQ 10.7% below its 200-day, third crash signal in 15 sessions). Wrong if QQQ is still below ~600 after the Dec 9 Fed decision.",
-      "last_bid": 4.16,
-      "last_mark": "2026-11-25T14:22:42-05:00"
+      "last_bid": 4.06,
+      "last_mark": "2026-11-25T15:08:54-05:00"
     }
   },
   "seen": [
@@ -230,5 +230,5 @@
   ],
   "realized": 95.39999999999998,
   "started": "2026-11-23T11:55:55-05:00",
-  "equity": 1193.1
+  "equity": 1183.8
 }
