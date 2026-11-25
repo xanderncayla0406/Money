@@ -98,3 +98,28 @@ At 00:14 the day-move check fired on Brent −4.3% (87.46 against a prior close 
 ### Wed Nov 25, 2026, 02:15 ET: calls graded only on finished days
 
 At 02:10 the scorer graded the Brent call's 1-day result on Wednesday's price bar, which was only a few hours old (futures trade overnight). That grade was undone. Calls are now graded only on daily closes from finished days: today's bar counts after 5pm ET.
+
+### Wed Nov 25, 2026, 11:15 ET: Christmas target, research trades and spreads
+
+**Why:** the owner asked to stop only watching and start trading, with a target of doubling the $1,000 by Christmas, using research on any stock, not only Trump posts. This entry is written before any of these trades, so the record shows the rules came first.
+
+**Honest odds.** Doubling in four weeks needs about +100%, which only concentrated option bets can reach, and most of those paths lose instead. My estimate is that doubling is unlikely (around 1 in 10), a loss of a third or more is about as likely, and the most likely result is somewhere between −40% and +50%. The rules below keep any single bad call from ending the test.
+
+**H4. Research trades (new).** Any listed stock or ETF, when there is a written thesis backed by one of:
+- a base rate measured from price history (for example, what an index did after past drops of the same size), or
+- a dated catalyst (earnings, a Fed decision, a hearing, an OPEC+ meeting) with a stated reason the market has it wrong.
+
+Each trade's reason must state the thesis, the evidence and what would prove it wrong.
+
+**Instruments:** buying calls or puts, as before, or a **debit spread** (buy one option, sell a further-out one of the same type and expiry). A spread is still defined-risk: the most it can lose is what was paid. Spreads are priced at real fills (long ask minus short bid to open, long bid minus short ask to close) and pay the per-contract fee on both legs.
+
+**Limits changed** (H1, H2 and H3 unchanged):
+
+| Rule | Was | Now |
+|---|---|---|
+| Spend per trade | $250 | $350 |
+| Take profit | +60% | +100%, or a spread worth 80% of its width |
+| Time limit | 7 days | 30 days, and everything closes on Wed Dec 23 |
+| Open positions, expiry, liquidity, stop loss, IV cap | | unchanged (3, 14 to 60 days, OI 100 and 15% spread per leg, −50%, 100%) |
+
+Direction calls (H3) keep being logged and graded alongside, so the record shows both the predictions and the trades.

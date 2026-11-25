@@ -41,15 +41,18 @@ UA = {"User-Agent": "Mozilla/5.0 (paper-trading research monitor)"}
 
 # ---- risk rules (also written out in RULES.md) ----
 START_CASH = 1000.00
-MAX_PER_TRADE = 250.00        # 25% of the starting account
+# Limits as changed Wed Nov 25, 2026 for the Christmas target (see RULES.md Changes); old values in comments
+MAX_PER_TRADE = 350.00        # was 250
 MAX_OPEN = 3
 FEE = 0.65                    # per contract, each side
 MIN_DAYS, MAX_DAYS = 14, 60   # days to expiry when opening
 MIN_OI = 100
 MAX_SPREAD = 0.15             # (ask - bid) / mid
-TAKE_PROFIT = 0.60            # +60% on premium
+MAX_IV = 1.00                 # no new trade above 100% implied volatility
+TAKE_PROFIT = 1.00            # +100% on premium (was +60%)
 STOP_LOSS = -0.50             # -50% on premium
-MAX_HOLD_DAYS = 7             # calendar days
+MAX_HOLD_DAYS = 30            # calendar days (was 7); everything closes by HARD_EXIT anyway
+HARD_EXIT = datetime(2026, 12, 23).date()   # close all positions from this day: the Christmas target
 EXIT_BEFORE_EXPIRY = 5        # close when this few days remain
 
 FEEDS = {
@@ -174,14 +177,37 @@ def chain(ticker: str):
 
 
 def contract_quote(symbol: str) -> dict:
-    """Look up one contract by OCC symbol, e.g. NVDA261218C00170000."""
+    """Look up one contract by OCC symbol, e.g. NVDA261218C00170000, or a debit spread written
+    LONG/SHORT (same ticker, type and expiry). A spread is priced at what it would really fill at:
+    bought at long ask minus short bid, sold at long bid minus short ask."""
+    if "/" in symbol:
+        lo, sh = (contract_quote(x) for x in symbol.split("/"))
+        if (lo["ticker"], lo["type"], lo["expiry"]) != (sh["ticker"], sh["type"], sh["expiry"]):
+            raise SystemExit("Spread legs must share ticker, type and expiry")
+        leg_ok = all(q["bid"] > 0 and (q["ask"] - q["bid"]) / ((q["ask"] + q["bid"]) / 2) <= MAX_SPREAD
+                     for q in (lo, sh))
+        return {"symbol": symbol, "ticker": lo["ticker"], "type": lo["type"] + " spread",
+                "strike": lo["strike"], "short_strike": sh["strike"], "expiry": lo["expiry"],
+                "bid": round(max(lo["bid"] - sh["ask"], 0), 2), "ask": round(lo["ask"] - sh["bid"], 2),
+                "last": lo["last"] - sh["last"], "oi": min(lo["oi"], sh["oi"]), "iv": lo["iv"],
+                "spot": lo["spot"], "legs": 2, "legs_liquid": leg_ok,
+                "max_value": abs(sh["strike"] - lo["strike"])}
     m = re.match(r"^([A-Z.]+)(\d{2})(\d{2})(\d{2})([CP])(\d{8})$", symbol)
     if not m:
         raise SystemExit(f"Not an option symbol: {symbol}")
     tk, yy, mm, dd, cp, k = m.groups()
     expiry = f"20{yy}-{mm}-{dd}"
-    t = chain(tk)
-    ch = t.option_chain(expiry)
+    import time
+    for attempt in range(4):
+        t = chain(tk)
+        try:
+            ch = t.option_chain(expiry)
+            break
+        except ValueError:
+            # a rate-limited Yahoo response comes back with no expiries at all; wait and ask again
+            if attempt == 3:
+                raise
+            time.sleep(5 * (attempt + 1))
     df = ch.calls if cp == "C" else ch.puts
     row = df[df["contractSymbol"] == symbol]
     if row.empty:
@@ -191,7 +217,7 @@ def contract_quote(symbol: str) -> dict:
     return {"symbol": symbol, "ticker": tk, "type": "call" if cp == "C" else "put",
             "strike": float(r.strike), "expiry": expiry, "bid": float(r.bid or 0),
             "ask": float(r.ask or 0), "last": float(r.lastPrice or 0),
-            "oi": int(r.openInterest or 0), "iv": float(r.impliedVolatility or 0), "spot": spot}
+            "oi": int(r.openInterest or 0), "iv": float(r.impliedVolatility or 0), "spot": spot, "legs": 1}
 
 
 def cmd_quote(a):
@@ -243,9 +269,14 @@ def cmd_buy(a):
         problems.append(f"expiry {days}d outside {MIN_DAYS}-{MAX_DAYS}")
     if q["oi"] < MIN_OI:
         problems.append(f"open interest {q['oi']} < {MIN_OI}")
-    if q["bid"] <= 0 or (q["ask"] - q["bid"]) / mid > MAX_SPREAD:
+    if q["legs"] == 2:
+        if not q["legs_liquid"]:
+            problems.append("a spread leg's bid/ask spread is too wide")
+    elif q["bid"] <= 0 or (q["ask"] - q["bid"]) / mid > MAX_SPREAD:
         problems.append("bid/ask spread too wide")
-    cost = a.qty * (q["ask"] * 100 + FEE)
+    if q["iv"] > MAX_IV:
+        problems.append(f"implied volatility {q['iv']:.0%} > {MAX_IV:.0%}")
+    cost = a.qty * (q["ask"] * 100 + FEE * q["legs"])
     if cost > MAX_PER_TRADE:
         problems.append(f"cost ${cost:.2f} > ${MAX_PER_TRADE:.0f} limit")
     if cost > s["cash"]:
@@ -267,7 +298,7 @@ def cmd_buy(a):
 def close(s, symbol, reason, quote=None):
     p = s["positions"][symbol]
     q = quote or contract_quote(symbol)
-    proceeds = p["qty"] * (q["bid"] * 100 - FEE)
+    proceeds = p["qty"] * (q["bid"] * 100 - FEE * p.get("legs", 1))
     pnl = proceeds - p["cost"]
     s["cash"] += proceeds
     s["realized"] += pnl
@@ -347,16 +378,21 @@ def cmd_mark(a):
         p = s["positions"][sym]
         q = contract_quote(sym)
         value = p["qty"] * q["bid"] * 100
-        ret = (value - p["qty"] * FEE) / p["cost"] - 1
+        ret = (value - p["qty"] * FEE * p.get("legs", 1)) / p["cost"] - 1
         held = (today - datetime.fromisoformat(p["opened"]).date()).days
         left = (datetime.strptime(p["expiry"], "%Y-%m-%d").date() - today).days
         why = []
         if ret >= TAKE_PROFIT:
             why.append(f"take profit ({ret:+.0%})")
+        elif p.get("max_value") and q["bid"] >= 0.8 * p["max_value"]:
+            # a spread can't gain more than its width, so take it once 80% of that is in hand
+            why.append(f"spread at {q['bid'] / p['max_value']:.0%} of max value")
         if ret <= STOP_LOSS:
             why.append(f"stop loss ({ret:+.0%})")
         if held >= MAX_HOLD_DAYS:
             why.append(f"held {held}d")
+        if today >= HARD_EXIT:
+            why.append(f"target date {HARD_EXIT}")
         if left <= EXIT_BEFORE_EXPIRY:
             why.append(f"{left}d to expiry")
         print(f"  {sym}: bid {q['bid']:.2f} (paid {p['entry']:.2f}), spot {q['spot']:.2f}, "
