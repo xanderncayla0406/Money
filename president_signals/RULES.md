@@ -86,3 +86,7 @@ That isn't an edge, so oil and war alerts get a logged direction call (`decide -
 ### Tue Nov 24, 2026, 17:45 ET: one alert per story
 
 The same war headline arrives from a dozen outlets over several hours, each one waking triage. The watcher now skips a headline when it shares at least 3 content words, and half of the shorter headline's words, with one alerted in the last 12 hours. On today's 85 headline alerts that keeps 58. Posts and price alerts aren't filtered. The 3-word minimum keeps a short new headline such as "US strikes Iran" from being swallowed by older strike talk. No rule or limit changes.
+
+### Tue Nov 24, 2026, 20:10 ET: false day-move alerts fixed
+
+At 20:05 the day-move check fired on SPY +4.7%, QQQ +7%, GLD +3.1% and USO −4.5%. All four were false: after hours the price feed had dropped today's daily bar, so the check compared Monday's close with Friday's. Stocks and ETFs are now checked for day moves only while the market is open, and futures only when the latest bar is today's. The four alerts stay in the file, marked here as false; none led to a decision.

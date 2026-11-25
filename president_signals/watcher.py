@@ -183,6 +183,12 @@ def check_day_moves(seen, first):
         col = close[s].dropna()
         if len(col) < 2:
             continue
+        # after hours the feed sometimes drops today's bar and compares yesterday with the day before;
+        # stocks and ETFs are checked only while the market is open, futures only on a current bar
+        if not s.endswith("=F") and m.market_session(m.now_et()) != "open":
+            continue
+        if col.index[-1].date() < m.now_et().date():
+            continue
         chg = float(col.iloc[-1]) / float(col.iloc[-2]) - 1
         key = f"{s}:{col.index[-1].date()}:{'up' if chg > 0 else 'down'}"
         if abs(chg) >= DAY_THRESH[s] and key not in done:
