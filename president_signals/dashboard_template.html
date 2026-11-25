@@ -97,7 +97,7 @@ a { color: var(--accent); }
   <header>
     <div class="eyebrow">Paper money only · live option quotes · <span id="upd"></span></div>
     <h1>$1,000 Paper Desk</h1>
-    <p class="lede">An account that trades calls and puts on presidential posts, White House actions and news. Every decision is logged with its reason, including the decision not to trade. The rules were fixed before the first trade.</p>
+    <p class="lede">An account that trades calls and puts on presidential posts, White House actions, news and researched setups in any stock, aiming to double $1,000 by Christmas (all positions close Dec 23). Every decision is logged with its reason, including the decision not to trade. The rules were fixed before the first trade.</p>
   </header>
   <div class="kpis" id="kpis"></div>
   <section>
@@ -145,8 +145,9 @@ $("kpis").innerHTML = [
 ].map(([v, k]) => `<div class="kpi"><span class="v">${v}</span><span class="k">${k}</span></div>`).join("");
 const pos = Object.entries(st.positions || {});
 $("pos").innerHTML = pos.length ? pos.map(([sym, p]) => {
-  const bid = p.last_bid ?? p.entry, r = (bid * 100 * p.qty - 0.65 * p.qty) / p.cost - 1;
-  return `<tr><td class="tick">${esc(sym)}</td><td>${t(p.opened)}</td><td class="num">${p.qty}</td><td class="num">${p.entry.toFixed(2)}</td><td class="num">${bid.toFixed(2)}</td><td class="num ${r >= 0 ? "hit" : "miss"}">${sp(r)}</td><td class="desc">${esc(p.reason)}</td></tr>`;
+  const bid = p.last_bid ?? p.entry, r = (bid * 100 * p.qty - 0.65 * (p.legs || 1) * p.qty) / p.cost - 1;
+  const name = p.short_strike ? `${p.ticker} ${p.expiry} ${p.strike}/${p.short_strike} ${p.type}` : sym;
+  return `<tr><td class="tick">${esc(name)}</td><td>${t(p.opened)}</td><td class="num">${p.qty}</td><td class="num">${p.entry.toFixed(2)}</td><td class="num">${bid.toFixed(2)}</td><td class="num ${r >= 0 ? "hit" : "miss"}">${sp(r)}</td><td class="desc">${esc(p.reason)}</td></tr>`;
 }).join("") : `<tr><td colspan="7" class="empty">No open positions. The account is in cash.</td></tr>`;
 $("closed").innerHTML = closed.length ? closed.slice().reverse().map(x => `<tr><td>${t(x.time)}</td><td class="tick">${esc(x.symbol)}</td><td class="num">${x.qty}</td><td class="num">${x.price.toFixed(2)}</td><td class="num ${x.pnl >= 0 ? "hit" : "miss"}">${money(x.pnl)} (${sp(x.pnl_pct)})</td><td class="desc">${esc(x.reason)}</td></tr>`).join("") : `<tr><td colspan="6" class="empty">No closed trades yet.</td></tr>`;
 $("dec").innerHTML = D.decisions.length ? D.decisions.slice().reverse().map(x => `<tr><td style="white-space:nowrap">${t(x.time)}</td><td><span class="pill ${/^no/i.test(x.action) ? "none" : "trade"}">${esc(x.action)}</span></td><td class="tick">${esc(x.ticker)}</td><td class="desc" style="color:var(--fg);font-size:.85rem">${esc(x.reason)}</td><td class="desc">${esc(x.source)}</td></tr>`).join("") : `<tr><td colspan="5" class="empty">No decisions logged yet.</td></tr>`;

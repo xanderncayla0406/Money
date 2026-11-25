@@ -1,6 +1,31 @@
 {
-  "cash": 1000.0,
-  "positions": {},
+  "cash": 742.7,
+  "positions": {
+    "QQQ261231C00630000/QQQ261231C00635000": {
+      "symbol": "QQQ261231C00630000/QQQ261231C00635000",
+      "ticker": "QQQ",
+      "type": "call spread",
+      "strike": 630.0,
+      "short_strike": 635.0,
+      "expiry": "2026-12-31",
+      "bid": 2.23,
+      "ask": 2.56,
+      "last": 1.7699999999999996,
+      "oi": 2280,
+      "iv": 0.3491581198120117,
+      "spot": 610.2620239257812,
+      "legs": 2,
+      "legs_liquid": true,
+      "max_value": 5.0,
+      "qty": 1,
+      "entry": 2.56,
+      "cost": 257.3,
+      "opened": "2026-11-25T11:01:57-05:00",
+      "reason": "H4 research trade: QQQ rebound. QQQ fell 6.1% in two days (651 to 611) with VIX at 33 on the AI and chip sell-off. Base rate since 2000: after a 2-day QQQ drop over 5% with VIX above 28 (40 cases), QQQ was higher 20 trading days later 65% of the time, mean +4.9%, median +3.6%, and only 10% of cases fell another 5%. Single stocks show no such edge (NVDA after 12% 2-day drops: 45% up), so this is an index bet. Dec 31 630/635 call spread: pays its full 5.00 if QQQ is at or above 635 (+3.9%) at expiry; options are expensive at 35% IV, so selling the 635 leg cuts the cost. Wrong if QQQ closes below 590 (another -3.5%) or the Dec 3 Huang hearing or Dec 9 Fed decision turns the sell-off into a trend. Exits: stop -50%, take profit at 80% of width, close by Dec 23.",
+      "last_bid": 2.12,
+      "last_mark": "2026-11-25T11:03:32-05:00"
+    }
+  },
   "seen": [
     "https://www.trumpstruth.org/statuses/43716",
     "https://www.trumpstruth.org/statuses/43715",
@@ -179,5 +204,5 @@
   ],
   "realized": 0.0,
   "started": "2026-11-23T11:55:55-05:00",
-  "equity": 1000.0
+  "equity": 954.7
 }
