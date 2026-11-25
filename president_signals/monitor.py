@@ -53,6 +53,7 @@ TAKE_PROFIT = 1.00            # +100% on premium (was +60%)
 STOP_LOSS = -0.50             # -50% on premium
 MAX_HOLD_DAYS = 30            # calendar days (was 7); everything closes by HARD_EXIT anyway
 HARD_EXIT = datetime(2026, 12, 23).date()
+QUICK_MAX = 200.00
 INDEX_ETFS = {"SPY", "QQQ", "IWM", "DIA"}   # index call debit spreads may skip the premium stop   # close all positions from this day: the Christmas target
 EXIT_BEFORE_EXPIRY = 5        # close when this few days remain
 
@@ -258,7 +259,7 @@ def cmd_buy(a):
     s = load_state()
     if a.symbol in s["positions"]:
         raise SystemExit("Already holding this contract.")
-    if len(s["positions"]) >= MAX_OPEN:
+    if sum(not p.get("quick") for p in s["positions"].values()) >= MAX_OPEN and not getattr(a, "quick", False):
         raise SystemExit(f"Rule: max {MAX_OPEN} open positions.")
     if market_session(now_et()) != "open" and not a.force:
         raise SystemExit("Market is closed; option quotes are stale. Wait for the open.")
@@ -266,7 +267,16 @@ def cmd_buy(a):
     days = (datetime.strptime(q["expiry"], "%Y-%m-%d").date() - now_et().date()).days
     mid = (q["bid"] + q["ask"]) / 2
     problems = []
-    if not MIN_DAYS <= days <= MAX_DAYS:
+    quick = getattr(a, "quick", False)
+    if quick:
+        # H5 quick trades (RULES.md Nov 25 12:50): SPY/QQQ, 1-7 calendar days, $200 cap, one at a time
+        if q["ticker"] not in {"SPY", "QQQ"} or not 1 <= days <= 7:
+            problems.append("quick trades: SPY/QQQ expiring in 1-7 days only")
+        if a.qty * (q["ask"] * 100 + FEE * q["legs"]) > QUICK_MAX:
+            problems.append(f"quick trade cost over ${QUICK_MAX:.0f}")
+        if any(p.get("quick") for p in s["positions"].values()):
+            problems.append("a quick trade is already open")
+    elif not MIN_DAYS <= days <= MAX_DAYS:
         problems.append(f"expiry {days}d outside {MIN_DAYS}-{MAX_DAYS}")
     if q["oi"] < MIN_OI:
         problems.append(f"open interest {q['oi']} < {MIN_OI}")
@@ -288,7 +298,8 @@ def cmd_buy(a):
         raise SystemExit("Rejected by risk rules: " + "; ".join(problems))
     s["cash"] -= cost
     s["positions"][a.symbol] = {**q, "qty": a.qty, "entry": q["ask"], "cost": cost,
-                                "stop": None if getattr(a, "no_stop", False) else STOP_LOSS,
+                                "stop": None if (getattr(a, "no_stop", False) or getattr(a, "quick", False)) else STOP_LOSS,
+                                "quick": getattr(a, "quick", False),
                                 "opened": now_et().isoformat(timespec="seconds"),
                                 "reason": a.reason}
     save_state(s)
@@ -398,7 +409,7 @@ def cmd_mark(a):
             why.append(f"held {held}d")
         if today >= HARD_EXIT:
             why.append(f"target date {HARD_EXIT}")
-        if left <= EXIT_BEFORE_EXPIRY:
+        if (left <= 0 and now_et().hour >= 15) if p.get("quick") else left <= EXIT_BEFORE_EXPIRY:
             why.append(f"{left}d to expiry")
         print(f"  {sym}: bid {q['bid']:.2f} (paid {p['entry']:.2f}), spot {q['spot']:.2f}, "
               f"value ${value:.2f}, {ret:+.0%}" + (f"  -> EXIT: {', '.join(why)}" if why else ""))
@@ -451,6 +462,7 @@ def main():
     p = sub.add_parser("quote"); p.add_argument("ticker"); p.add_argument("kind", choices=["call", "put"])
     p.set_defaults(f=cmd_quote)
     p = sub.add_parser("buy"); p.add_argument("symbol"); p.add_argument("qty", type=int)
+    p.add_argument("--quick", action="store_true", help="H5 quick trade: SPY/QQQ, 1-7 days, $200 cap")
     p.add_argument("--no-stop", action="store_true",
                    help="index call debit spreads only (RULES.md, Nov 25 12:00): no premium stop, the debit is the max loss")
     p.add_argument("--reason", required=True); p.add_argument("--force", action="store_true")

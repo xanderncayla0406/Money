@@ -135,3 +135,13 @@ Direction calls (H3) keep being logged and graded alongside, so the record shows
 - The cost: the worst 10% of outcomes lose about the whole premium, and call spreads lose together in a continued crash.
 
 The study has only 47 paths, so each expected return is uncertain by about ±8–15 points. The put spread tested (IWM) did better with the stop, so puts keep it.
+
+### Wed Nov 25, 2026, 12:50 ET: quick trades (1–2 day options)
+
+**Why:** the owner asked for options that pay within a day or two ("quick cash"). Written before the first such trade.
+
+**H5. Quick trades:** options or debit spreads expiring 1 to 5 trading days out, on SPY or QQQ only (the tightest bid/ask, so the least lost to fills). At most $200 per trade, and only one quick trade open at a time, on top of the 3-position limit. No premium stop: these are held to the target or sold at the 3pm check on expiry day, because 1–2 day options swing too much intraday for a stop to mean anything.
+
+**Honest odds:** short-dated options lose value fastest, and on average their buyers lose. Each quick trade is closer to a coin flip with a big payoff than a measured edge. Expect most of them to expire worthless; the account survives that because each is capped at $200.
+
+Also changed for usage: `wait_alerts.sh` now wakes Claude only for posts, price alerts and headlines scored 4 or more. Lower-scored headlines wait for the scheduled checks.
