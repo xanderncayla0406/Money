@@ -146,3 +146,4 @@ The study has only 47 paths, so each expected return is uncertain by about Â±8â€
 
 Also changed for usage: `wait_alerts.sh` now wakes Claude only for posts, price alerts and headlines scored 4 or more. Lower-scored headlines wait for the scheduled checks.
 - **Nov 25, 15:45 ET, usage:** presidential posts with no market keywords (score 1, e.g. Iowa/CNN posts) no longer wake Claude; they're reviewed at the scheduled checks. Posts with any war, oil, tariff or market keyword still wake it at once.
+- **Nov 25, 21:15 ET, scoring:** Yahoo left the Nov 25 daily close blank for stocks, so the NVDA, LMT and SPY calls went ungraded. `score` now fills a missing finished-day close with the day's last hourly bar.

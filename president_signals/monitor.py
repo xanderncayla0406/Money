@@ -359,7 +359,17 @@ def cmd_score(a):
                          auto_adjust=False, multi_level_index=False)
         if df is None or df.empty:
             continue
-        closes = df["Close"].dropna()
+        closes = df["Close"]
+        # Yahoo sometimes leaves a finished day's daily close empty for hours (Nov 25 stocks): fill from hourly bars
+        if closes.isna().any():
+            h = yf.download(r["predict_symbol"], start=made.date().isoformat(), interval="60m", progress=False,
+                            auto_adjust=False, multi_level_index=False)
+            if h is not None and not h.empty:
+                last = h["Close"].dropna().groupby(h["Close"].dropna().index.date).last()
+                for d in closes.index[closes.isna()]:
+                    if d.date() in last.index:
+                        closes[d] = float(last[d.date()])
+        closes = closes.dropna()
         # only finished days count: today's bar is still moving until the 4pm close (futures trade on past it,
         # so 5pm gives settlement time); grading on it marked Brent's 1-day call early at 2am
         now = now_et()
